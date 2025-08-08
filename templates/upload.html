@@ -1,39 +1,49 @@
 {% extends "base.html" %}
 {% block content %}
-<h3 class="mb-3">Upload CSV</h3>
-<form method="post" enctype="multipart/form-data" class="card p-3 mb-4">
+<h3>Upload CSV</h3>
+
+<form class="mb-4" method="post" enctype="multipart/form-data">
   <div class="row g-2">
-    <div class="col-md-4">
-      <label class="form-label">Dataset name (optional)</label>
-      <input class="form-control" type="text" name="name" placeholder="My search - Apr 2025">
+    <div class="col-sm-4">
+      <input class="form-control" type="text" name="name" placeholder="Dataset name (optional)">
     </div>
-    <div class="col-md-6">
-      <label class="form-label">CSV file</label>
+    <div class="col-sm-6">
       <input class="form-control" type="file" name="file" accept=".csv" required>
     </div>
-    <div class="col-md-2 d-flex align-items-end">
-      <button class="btn btn-primary w-100">Upload</button>
+    <div class="col-sm-2">
+      <button class="btn btn-primary w-100" type="submit">Upload</button>
     </div>
-  </div>
-  <div class="form-text mt-2">
-    Auto-detects columns for <b>title</b>, <b>year</b>, and <b>abstract</b> (case-insensitive). Other columns are preserved.
   </div>
 </form>
 
 <h5>Existing datasets</h5>
-<table class="table table-sm table-hover">
-  <thead><tr><th>ID</th><th>Name</th><th>Created</th><th></th></tr></thead>
+<table class="table table-sm align-middle">
+  <thead>
+    <tr>
+      <th style="width: 80px;">ID</th>
+      <th>Name</th>
+      <th style="width: 180px;">Created</th>
+      <th style="width: 240px;">Actions</th>
+    </tr>
+  </thead>
   <tbody>
-  {% for ds in datasets %}
+    {% for ds in datasets %}
     <tr>
       <td class="mono">{{ ds.id }}</td>
       <td>{{ ds.name }}</td>
-      <td class="muted">{{ ds.created_at }}</td>
-      <td><a href="{{ url_for('switch', dataset_id=ds.id) }}" class="btn btn-outline-primary btn-sm">Open</a></td>
+      <td class="text-muted">{{ ds.created_at.strftime('%Y-%m-%d %H:%M') if ds.created_at else '' }}</td>
+      <td>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('label_next', dataset_id=ds.id) }}">Open</a>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('review', dataset_id=ds.id) }}">Review</a>
+        <form method="post" action="{{ url_for('delete_dataset', dataset_id=ds.id) }}"
+              style="display:inline" onsubmit="return confirm('Delete this dataset and all its articles?');">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+        </form>
+      </td>
     </tr>
-  {% else %}
-    <tr><td colspan="4" class="muted">No datasets yet.</td></tr>
-  {% endfor %}
+    {% else %}
+    <tr><td colspan="4" class="text-muted">No datasets yet.</td></tr>
+    {% endfor %}
   </tbody>
 </table>
 {% endblock %}

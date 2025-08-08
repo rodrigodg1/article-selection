@@ -33,6 +33,14 @@ class Dataset(db.Model):
     name = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=dt.datetime.utcnow)
 
+    # Relationship used for cascading deletes at the ORM level
+    articles = db.relationship(
+        "Article",
+        backref="dataset",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
+
 class Article(db.Model):
     __tablename__ = "articles"
     id = db.Column(db.Integer, primary_key=True)
@@ -44,8 +52,6 @@ class Article(db.Model):
     label = db.Column(db.String(8), nullable=True)  # 'yes'|'no'|None
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=dt.datetime.utcnow)
-
-    dataset = db.relationship("Dataset", backref=db.backref("articles", lazy=True))
 
 # ----------------------------
 # Column detection
@@ -120,8 +126,6 @@ def extract_cited_by(extras: dict | None) -> Optional[int]:
 # ----------------------------
 # Improved heuristic PMR (no LLM)
 # ----------------------------
-
-# 1) Structured abstracts: headings to buckets
 SECTION_ALIASES: Dict[str, List[str]] = {
     "problem": ["background", "introduction", "objective", "objectives", "aim", "aims",
                 "purpose", "motivation", "problem", "gap"],
@@ -137,7 +141,6 @@ HEADING_RE = re.compile(
     r"Results?|Findings?|Evaluation|Experiments?|Conclusions?|Outcomes?|Performance)\s*:\s*"
 )
 
-# 2) Weighted cue sets for sentence scoring (lowercase substrings → weights)
 PROBLEM_WEIGHTS: Dict[str, int] = {
     "problem":3, "challenge":3, "gap":3, "issue":2, "limitation":2, "bottleneck":2,
     "lack":2, "scarcity":2, "need":2, "motivation":2, "objective":2, "aim":2, "goal":2,
@@ -160,7 +163,6 @@ RESULTS_WEIGHTS: Dict[str, int] = {
     "%":1, "percent":1, "p<":2, "p <":2
 }
 
-# Sentence splitting with simple abbreviation handling
 ABBREV_FIX = {
     "e.g.": "eg", "i.e.": "ie", "et al.": "et al", "Fig.": "Fig", "fig.": "fig",
     "Dr.": "Dr", "Mr.": "Mr", "Ms.": "Ms", "Prof.": "Prof", "vs.": "vs",
@@ -202,11 +204,9 @@ def _score_sentence(s: str, weights: Dict[str, int]) -> int:
     for term, w in weights.items():
         if term in ls:
             score += w
-    # Bonus if sentence length suggests content
     tok_count = len(ls.split())
     if 10 <= tok_count <= 50:
         score += 1
-    # Extra bonus for numbers in results
     if weights is RESULTS_WEIGHTS and re.search(r"\d|%", ls):
         score += 1
     return score
@@ -224,10 +224,6 @@ def _pick_best_weighted(sentences: List[str], weights: Dict[str, int]) -> Option
     return sentences[best_idx].strip()
 
 def _parse_structured_sections(text: str) -> Optional[Dict[str, str]]:
-    """
-    Parse 'Background: ... Methods: ... Results: ...' style abstracts.
-    Uses regex finditer to avoid split-capture pitfalls.
-    """
     matches = list(HEADING_RE.finditer(text))
     if not matches:
         return None
@@ -239,7 +235,6 @@ def _parse_structured_sections(text: str) -> Optional[Dict[str, str]]:
         content = text[start:end].strip()
         if not content:
             continue
-        # Map heading to bucket
         for bucket, aliases in SECTION_ALIASES.items():
             if any(a in label for a in aliases):
                 sec_map[bucket].append(content)
@@ -251,18 +246,10 @@ def _parse_structured_sections(text: str) -> Optional[Dict[str, str]]:
     return out if out else None
 
 def summarize_pmr(abstract: Optional[str]) -> dict:
-    """
-    Heuristic PMR extractor:
-    1) Try structured abstract headings.
-    2) Otherwise, score sentences for each bucket.
-    3) Backoffs (first/middle/last; prefer numeric tails for results).
-    """
     if not abstract or not abstract.strip():
         return {"problem": None, "method": None, "results": None}
-
     text = abstract.strip()
 
-    # 1) Structured abstracts
     structured = _parse_structured_sections(text)
     if structured:
         return {
@@ -271,7 +258,6 @@ def summarize_pmr(abstract: Optional[str]) -> dict:
             "results": structured.get("results"),
         }
 
-    # 2) Sentence-based scoring
     sentences = _split_sentences(text)
     if not sentences:
         return {"problem": None, "method": None, "results": None}
@@ -280,7 +266,6 @@ def summarize_pmr(abstract: Optional[str]) -> dict:
     method  = _pick_best_weighted(sentences, METHOD_WEIGHTS)
     results = _pick_best_weighted(sentences, RESULTS_WEIGHTS)
 
-    # 3) Backoffs
     n = len(sentences)
     if not problem:
         problem = sentences[0].strip()
@@ -292,7 +277,6 @@ def summarize_pmr(abstract: Optional[str]) -> dict:
         numeric = next((s for s in tail if re.search(r"\d|%", s)), None)
         results = (numeric or tail[-1]).strip()
 
-    # Clip for readability
     return {
         "problem": _soft_clip(problem),
         "method": _soft_clip(method),
@@ -300,11 +284,6 @@ def summarize_pmr(abstract: Optional[str]) -> dict:
     }
 
 def ensure_pmr_cached(article: Article, force: bool = False) -> Tuple[dict, str]:
-    """
-    Compute PMR via heuristic and cache into extra_json['pmr'] when it has content.
-    - force=True recomputes even if cache exists.
-    Returns (pmr_dict, 'heuristic' or 'cache').
-    """
     extras = article.extra_json or {}
     cached = extras.get("pmr")
 
@@ -321,7 +300,6 @@ def ensure_pmr_cached(article: Article, force: bool = False) -> Tuple[dict, str]
         db.session.commit()
         return pmr, "heuristic"
     else:
-        # Don't cache empties; allow future retries
         return pmr, "heuristic"
 
 # ----------------------------
@@ -383,6 +361,30 @@ def switch(dataset_id):
         return redirect(url_for("upload"))
     session["dataset_id"] = dataset_id
     return redirect(url_for("label_next", dataset_id=dataset_id))
+
+@app.route("/dataset/<int:dataset_id>/delete", methods=["POST"])
+def delete_dataset(dataset_id):
+    """
+    Delete a dataset and all its articles.
+    Uses ORM cascade (Dataset.articles) and also falls back to explicit delete for safety.
+    """
+    ds = Dataset.query.get_or_404(dataset_id)
+
+    # If the dataset being deleted is the active one, clear it from session
+    if session.get("dataset_id") == dataset_id:
+        session.pop("dataset_id", None)
+
+    # ORM cascade should handle children; explicit delete is a safe fallback for SQLite configs
+    # that might not enforce FK ON DELETE. Either is fine; using both is safe.
+    # Explicit child delete (fast bulk)
+    Article.query.filter_by(dataset_id=dataset_id).delete(synchronize_session=False)
+
+    # Now delete the dataset row
+    db.session.delete(ds)
+    db.session.commit()
+
+    flash(f"Dataset {dataset_id} deleted.", "success")
+    return redirect(url_for("upload"))
 
 @app.route("/label/<int:dataset_id>")
 def label_next(dataset_id):
