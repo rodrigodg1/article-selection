@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: litreview
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    envVars:
+      - key: SECRET_KEY
+        value: change-me
+      # For Option A (SQLite on ephemeral FS), uncomment the next line:
+      # - key: SQLALCHEMY_DATABASE_URI
+      #   value: sqlite:////tmp/literature.db
+      # For Option B (Postgres), set this value in the dashboard after you create the DB:
+      # - key: SQLALCHEMY_DATABASE_URI
+      #   fromDatabase:
+      #     name: litreview-db
+      #     property: connectionString
+    autoDeploy: true
+# For Option B only — create a free Postgres and wire the env var automatically
+# databases:
+#   - name: litreview-db
+#     plan: free
