@@ -1,204 +1,251 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Literature Review Helper</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { padding-top: 4.25rem; }
-    .abstract-box pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
-    .muted { color: #6c757d; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-    .kw { background: #ffec99; padding: .1rem .25rem; border-radius: .25rem; }
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Literature Review Helper</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 4.25rem;
+        }
 
-    /* Sidebar layout for lg+ */
-    @media (min-width: 992px) {
-      .layout {
-        display: grid;
-        grid-template-columns: 320px 1fr;
-        gap: 1.25rem;
-      }
-      .sidebar-sticky {
-        position: sticky;
-        top: 5rem;
-        align-self: start;
-        max-height: calc(100vh - 6rem);
-        overflow: auto;
-      }
-    }
+        .abstract-box pre {
+            white-space: pre-wrap;
+            font-family: inherit;
+            margin: 0;
+        }
 
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: .35rem;
-      padding: .2rem .5rem;
-      border-radius: 999px;
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
-      font-size: .86rem;
-      margin: .2rem .3rem .2rem 0;
-    }
-    .chip .btn-close { transform: scale(.8); opacity: .8; }
-    .offcanvas-header small { color: #6c757d; }
-    .badge-count { font-weight: 500; }
-  </style>
+        .muted {
+            color: #6c757d;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+
+        .kw {
+            background: #ffec99;
+            padding: .1rem .25rem;
+            border-radius: .25rem;
+        }
+
+        /* Sidebar layout for lg+ */
+        @media (min-width: 992px) {
+            .layout {
+                display: grid;
+                grid-template-columns: 320px 1fr;
+                gap: 1.25rem;
+            }
+
+            .sidebar-sticky {
+                position: sticky;
+                top: 5rem;
+                align-self: start;
+                max-height: calc(100vh - 6rem);
+                overflow: auto;
+            }
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .2rem .5rem;
+            border-radius: 999px;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            font-size: .86rem;
+            margin: .2rem .3rem .2rem 0;
+        }
+
+        .chip .btn-close {
+            transform: scale(.8);
+            opacity: .8;
+        }
+
+        .offcanvas-header small {
+            color: #6c757d;
+        }
+
+        .badge-count {
+            font-weight: 500;
+        }
+    </style>
 </head>
+
 <body>
-  <!-- Top navbar -->
-  <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom fixed-top">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url_for('home') }}">LitReview</a>
+    <!-- Top navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('home') }}">LitReview</a>
 
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-      <div class="collapse navbar-collapse" id="topNav">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          {% if active_dataset_id %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('label_next', dataset_id=active_dataset_id) }}">Label</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('review', dataset_id=active_dataset_id) }}">Review</a>
-          </li>
-          {% endif %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('upload') }}">Datasets</a>
-          </li>
-        </ul>
+            <div class="collapse navbar-collapse" id="topNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% if active_dataset_id %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('label_next', dataset_id=active_dataset_id) }}">Label</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('review', dataset_id=active_dataset_id) }}">Review</a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('upload') }}">Datasets</a>
+                    </li>
+                </ul>
 
-        {% if active_dataset_id %}
-        <div class="d-none d-lg-flex me-3 small text-nowrap">
-          <span class="me-3">Total: <span class="badge-count">{{ nav_counts.total }}</span></span>
-          <span class="me-3 text-success">Yes: <span class="badge-count">{{ nav_counts.yes }}</span></span>
-          <span class="me-3 text-danger">No: <span class="badge-count">{{ nav_counts.no }}</span></span>
-          <span class="text-secondary">Unlabeled: <span class="badge-count">{{ nav_counts.unlabeled }}</span></span>
+                {% if active_dataset_id %}
+                <div class="d-none d-lg-flex me-3 small text-nowrap">
+                    <span class="me-3">Total: <span class="badge-count">{{ nav_counts.total }}</span></span>
+                    <span class="me-3 text-success">Yes: <span class="badge-count">{{ nav_counts.yes }}</span></span>
+                    <span class="me-3 text-danger">No: <span class="badge-count">{{ nav_counts.no }}</span></span>
+                    <span class="text-secondary">Unlabeled: <span class="badge-count">{{ nav_counts.unlabeled
+                            }}</span></span>
+                </div>
+                {% endif %}
+
+                <!-- Open sidebar on small screens -->
+                <button class="btn btn-outline-primary d-lg-none" type="button" data-bs-toggle="offcanvas"
+                    data-bs-target="#keywordsDrawer">
+                    Keywords
+                </button>
+            </div>
         </div>
-        {% endif %}
+    </nav>
 
-        <!-- Open sidebar on small screens -->
-        <button class="btn btn-outline-primary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#keywordsDrawer">
-          Keywords
-        </button>
-      </div>
+    <div class="container-fluid">
+        <!-- Grid layout (sidebar + main) for lg+, offcanvas for <lg -->
+        <div class="layout">
+            <!-- Sidebar (lg+) -->
+            <aside class="d-none d-lg-block sidebar-sticky">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-1">Highlight keywords</h6>
+                        <div class="text-muted small mb-2">Words to emphasize in abstracts (per dataset).</div>
+
+                        <!-- Chips -->
+                        <div class="mb-2">
+                            {% if highlight_terms %}
+                            {% for term in highlight_terms %}
+                            <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
+                                <input type="hidden" name="term" value="{{ term }}">
+                                <span class="chip">
+                                    {{ term }}
+                                    <button type="submit" class="btn-close" aria-label="Remove"></button>
+                                </span>
+                            </form>
+                            {% endfor %}
+                            {% else %}
+                            <div class="text-muted small">No keywords yet.</div>
+                            {% endif %}
+                        </div>
+
+                        <form method="post" action="{{ url_for('set_highlight') }}" class="mb-2">
+                            <div class="mb-2">
+                                <textarea class="form-control" name="keywords" rows="2"
+                                    placeholder="Add keywords (comma, semicolon, or newline separated)">{{ highlight_query }}</textarea>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="kwRegex" name="is_regex" {% if
+                                    highlight_is_regex %}checked{% endif %}>
+                                <label class="form-check-label" for="kwRegex">Use regular expressions</label>
+                            </div>
+                            <button class="btn btn-sm btn-primary" type="submit">Add / Update</button>
+                        </form>
+
+                        <!-- Clear all (separate form; not nested) -->
+                        <form method="post" action="{{ url_for('clear_highlight') }}">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">Clear all</button>
+                        </form>
+
+                        <div class="small text-muted mt-2">
+                            Tip: matching is case-insensitive; phrases are supported.
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main content -->
+            <main class="py-3">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="mt-2">
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{'secondary' if category=='message' else category}} alert-dismissible fade show"
+                        role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
     </div>
-  </nav>
 
-  <div class="container-fluid">
-    <!-- Grid layout (sidebar + main) for lg+, offcanvas for <lg -->
-    <div class="layout">
-      <!-- Sidebar (lg+) -->
-      <aside class="d-none d-lg-block sidebar-sticky">
-        <div class="card">
-          <div class="card-body">
-            <h6 class="card-title mb-1">Highlight keywords</h6>
-            <div class="text-muted small mb-2">Words to emphasize in abstracts (per dataset).</div>
-
+    <!-- Offcanvas drawer for small screens -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="keywordsDrawer" aria-labelledby="keywordsDrawerLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="keywordsDrawerLabel">Highlight keywords</h5>
+            <small class="ms-2">(per dataset)</small>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
             <!-- Chips -->
             <div class="mb-2">
-              {% if highlight_terms %}
+                {% if highlight_terms %}
                 {% for term in highlight_terms %}
-                  <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
+                <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
                     <input type="hidden" name="term" value="{{ term }}">
                     <span class="chip">
-                      {{ term }}
-                      <button type="submit" class="btn-close" aria-label="Remove"></button>
+                        {{ term }}
+                        <button type="submit" class="btn-close" aria-label="Remove"></button>
                     </span>
-                  </form>
+                </form>
                 {% endfor %}
-              {% else %}
+                {% else %}
                 <div class="text-muted small">No keywords yet.</div>
-              {% endif %}
+                {% endif %}
             </div>
 
-            <!-- Add / update keywords -->
+            <!-- Add / update -->
             <form method="post" action="{{ url_for('set_highlight') }}" class="mb-2">
-              <div class="mb-2">
-                <textarea class="form-control" name="keywords" rows="2"
-                  placeholder="Add keywords (comma, semicolon, or newline separated)">{{ highlight_query }}</textarea>
-              </div>
-              <button class="btn btn-sm btn-primary" type="submit">Add / Update</button>
+                <div class="mb-2">
+                    <textarea class="form-control" name="keywords" rows="3"
+                        placeholder="Add keywords (comma, semicolon, or newline separated)">{{ highlight_query }}</textarea>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="kwRegexMobile" name="is_regex" {% if
+                        highlight_is_regex %}checked{% endif %}>
+                    <label class="form-check-label" for="kwRegexMobile">Use regular expressions</label>
+                </div>
+                <button class="btn btn-primary" type="submit">Add / Update</button>
             </form>
 
             <!-- Clear all (separate form; not nested) -->
-            <form method="post" action="{{ url_for('clear_highlight') }}">
-              <button class="btn btn-sm btn-outline-danger" type="submit">Clear all</button>
+            <form action="{{ url_for('clear_highlight') }}" method="post" class="mt-2">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Clear all</button>
             </form>
 
             <div class="small text-muted mt-2">
-              Tip: matching is case-insensitive; phrases are supported.
+                Matching is case-insensitive. If “Use regular expressions” is on, each entry is treated as a Python
+                regex.
+                Examples: <code>\bRNN(s)?\b</code>, <code>\d+(\.\d+)?%</code>, <code>f1-?score</code>.
             </div>
-          </div>
+
         </div>
-      </aside>
-
-      <!-- Main content -->
-      <main class="py-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="mt-2">
-          {% for category, message in messages %}
-          <div class="alert alert-{{'secondary' if category=='message' else category}} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
-        {% endwith %}
-
-        {% block content %}{% endblock %}
-      </main>
     </div>
-  </div>
 
-  <!-- Offcanvas drawer for small screens -->
-  <div class="offcanvas offcanvas-start" tabindex="-1" id="keywordsDrawer" aria-labelledby="keywordsDrawerLabel">
-    <div class="offcanvas-header">
-      <h5 class="offcanvas-title" id="keywordsDrawerLabel">Highlight keywords</h5>
-      <small class="ms-2">(per dataset)</small>
-      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body">
-      <!-- Chips -->
-      <div class="mb-2">
-        {% if highlight_terms %}
-          {% for term in highlight_terms %}
-            <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
-              <input type="hidden" name="term" value="{{ term }}">
-              <span class="chip">
-                {{ term }}
-                <button type="submit" class="btn-close" aria-label="Remove"></button>
-              </span>
-            </form>
-          {% endfor %}
-        {% else %}
-          <div class="text-muted small">No keywords yet.</div>
-        {% endif %}
-      </div>
-
-      <!-- Add / update -->
-      <form method="post" action="{{ url_for('set_highlight') }}" class="mb-2">
-        <div class="mb-2">
-          <textarea class="form-control" name="keywords" rows="3"
-            placeholder="Add keywords (comma, semicolon, or newline separated)">{{ highlight_query }}</textarea>
-        </div>
-        <button class="btn btn-primary" type="submit">Add / Update</button>
-      </form>
-
-      <!-- Clear all (separate form; not nested) -->
-      <form action="{{ url_for('clear_highlight') }}" method="post" class="mt-2">
-        <button type="submit" class="btn btn-outline-danger btn-sm">Clear all</button>
-      </form>
-
-      <div class="small text-muted mt-2">
-        Matching is case-insensitive; phrases are supported.
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>

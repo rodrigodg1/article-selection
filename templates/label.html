@@ -79,7 +79,7 @@
     {# ---------------------------------------------------------- #}
 
     <div class="abstract-box">
-      <pre>{{ (article.abstract or '[No abstract]') | hilite(highlight_terms) | safe }}</pre>
+      <pre>{{ (article.abstract or '[No abstract]') |  hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
     </div>
 
 

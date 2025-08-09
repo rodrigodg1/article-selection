@@ -156,7 +156,19 @@ def _store_terms_for_dataset(dsid: int | None, terms: list[str]) -> None:
     session["highlight_terms"] = dct
     
     
-    
+def _regex_flag_for_dataset(dsid: int | None) -> bool:
+    if not dsid:
+        return False
+    dct = session.get("highlight_regex_flags", {})
+    return bool(dct.get(str(dsid), False))
+
+def _store_regex_flag_for_dataset(dsid: int | None, is_regex: bool) -> None:
+    if not dsid:
+        return
+    dct = session.get("highlight_regex_flags", {})
+    dct[str(dsid)] = bool(is_regex)
+    session["highlight_regex_flags"] = dct
+
     
     
     
@@ -180,23 +192,67 @@ def clear_highlight():
     flash("Highlight keywords cleared.", "secondary")
     return redirect(request.referrer or (url_for("label_next", dataset_id=dsid) if dsid else url_for("upload")))
  
-    
-    
 
 @app.template_filter("hilite")
-def jinja_hilite(text: str, terms: list[str] | None = None) -> str:
-    """Wrap case-insensitive matches with <mark class="kw">..</mark>. HTML-safe."""
+def jinja_hilite(text: str, terms: list[str] | None = None, *args, **kwargs) -> str:
+    """Highlight only the token(s) that match user patterns.
+    Accepts extra args from Jinja without error.
+    """
     if not text:
         return ""
     safe = html.escape(text)
-    terms = terms or []
-    words = sorted({t for t in terms if t}, key=len, reverse=True)
-    if not words:
+    terms = [t for t in (terms or []) if t and t.strip()]
+    if not terms:
         return safe
-    pat = re.compile("(" + "|".join(map(lambda w: re.escape(w), words)) + ")", re.IGNORECASE)
-    def _wrap(m):
-        return f'<mark class="kw">{m.group(0)}</mark>'
-    return pat.sub(_wrap, safe)
+
+    def looks_like_regex(p: str) -> bool:
+        return re.search(r"[.\^\$\+\{\}\(\)\[\]\|\\]", p) is not None
+
+    def build_pattern(p: str):
+        p = p.strip()
+        if re.fullmatch(r"[*?]+", p):
+            return None
+        leading_wild = p.startswith("*")
+        trailing_wild = p.endswith("*")
+        if looks_like_regex(p):
+            core = p
+        else:
+            core = re.escape(p).replace(r"\*", r"[^\s<>]*").replace(r"\?", r"[^\s<>]")
+        if not leading_wild:
+            core = r"(?<![\w-])" + core
+        if not trailing_wild:
+            core = core + r"(?![\w-])"
+        try:
+            return re.compile(core, re.IGNORECASE | re.MULTILINE)
+        except re.error:
+            return None
+
+    patterns = [rx for t in terms if (rx := build_pattern(t))]
+    if not patterns:
+        return safe
+
+    segments = re.split(r"(<mark\b[^>]*>|</mark>)", safe, flags=re.IGNORECASE)
+    out, in_mark = [], False
+    for seg in segments:
+        if seg is None or seg == "":
+            continue
+        if re.fullmatch(r"<mark\b[^>]*>", seg, flags=re.IGNORECASE):
+            in_mark = True
+            out.append(seg)
+            continue
+        if re.fullmatch(r"</mark>", seg, flags=re.IGNORECASE):
+            in_mark = False
+            out.append(seg)
+            continue
+        if in_mark:
+            out.append(seg)
+        else:
+            text_seg = seg
+            for rx in patterns:
+                text_seg = rx.sub(lambda m: f'<mark class="kw">{m.group(0)}</mark>', text_seg)
+            out.append(text_seg)
+
+    return "".join(out)
 
 # ----------------------------
 # Navbar context (datasets, counts, keywords, progress)
@@ -210,11 +266,13 @@ def inject_nav():
     else:
         total = yes = no = unlabeled = 0
     hl_terms = _terms_for_dataset(dsid)
+    hl_is_regex = _regex_flag_for_dataset(dsid)
     return {
         "active_dataset_id": dsid,
         "datasets_for_nav": datasets,
         "nav_counts": {"total": total, "yes": yes, "no": no, "unlabeled": unlabeled},
         "highlight_terms": hl_terms,
+        "highlight_is_regex": hl_is_regex,          # <— NEW
         "highlight_query": ", ".join(hl_terms),
     }
 
@@ -301,11 +359,30 @@ def delete_dataset(dataset_id):
 def set_highlight():
     dsid = get_active_dataset_id()
     query = request.form.get("keywords", "")
+    is_regex = request.form.get("is_regex") == "on"
+
     terms = _parse_keywords(query)
     _store_terms_for_dataset(dsid, terms)
-    flash("Highlight keywords updated.", "success")
+    _store_regex_flag_for_dataset(dsid, is_regex)
+
+    # Try compiling to warn about invalid patterns
+    bad = []
+    if is_regex:
+        for t in terms:
+            try:
+                re.compile(t, re.IGNORECASE | re.MULTILINE)
+            except re.error:
+                bad.append(t)
+
+    if bad:
+        flash(f"Updated keywords, but skipped invalid regex: {', '.join(bad)}", "warning")
+    else:
+        flash("Highlight keywords updated.", "success")
+
     next_url = request.referrer or (url_for("label_next", dataset_id=dsid) if dsid else url_for("upload"))
     return redirect(next_url)
+
+
 
 @app.route("/label/<int:dataset_id>")
 def label_next(dataset_id):

@@ -135,7 +135,7 @@
       <td class="abstract-box">
         {% set abs_text = a.abstract or '[No abstract]' %}
         {% set short_abs = abs_text[:800] ~ ('…' if abs_text|length > 800 else '') %}
-        <pre class="mb-0">{{ short_abs | hilite(highlight_terms) | safe }}</pre>
+        <pre class="mb-0">{{ short_abs | hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
       </td>
 
       <!-- Actions -->
