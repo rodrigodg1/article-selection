@@ -19,18 +19,19 @@
 
 {# Progress bar #}
 {% if total and total > 0 %}
-  <div class="mb-3">
-    <div class="d-flex justify-content-between small mb-1">
-      <div><strong>Progress:</strong> {{ pct_done }}%</div>
-      <div><span class="muted">Remaining: {{ unlabeled }}</span></div>
-    </div>
-    <div class="progress" role="progressbar" aria-valuenow="{{ pct_done }}" aria-valuemin="0" aria-valuemax="100">
-      <div class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
-           style="width: '{{ pct_done|default(0, true) }}%';">
-        {{ pct_done }}%
-      </div>
+<div class="mb-3">
+  <div class="d-flex justify-content-between small mb-1">
+    <div><strong>Progress:</strong> {{ pct_done }}%</div>
+    <div><span class="muted">Remaining: {{ unlabeled }}</span></div>
+  </div>
+  <div class="progress" role="progressbar" aria-valuenow="{{ pct_done }}" aria-valuemin="0" aria-valuemax="100">
+    <div
+      class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
+      style="width: '{{ pct_done|default(0, true) }}%';">
+      {{ pct_done }}%
     </div>
   </div>
+</div>
 {% endif %}
 
 {% if article %}
@@ -40,57 +41,63 @@
     <h6 class="card-subtitle mb-1 text-muted">{{ article.year or '' }}</h6>
 
     {% if doi %}
-      <div class="mb-1"><strong>DOI:</strong>
-        <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">{{ doi }}</a>
-      </div>
+    <div class="mb-1"><strong>DOI:</strong>
+      <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">{{ doi }}</a>
+    </div>
     {% endif %}
 
     {% if source_title %}
-      <div class="mb-1"><strong>Source title:</strong> {{ source_title }}</div>
+    <div class="mb-1"><strong>Source title:</strong> {{ source_title }}</div>
     {% endif %}
 
     {% if cited_by is not none %}
-      <div class="mb-2"><strong>Cited by:</strong> {{ cited_by }}</div>
+    <div class="mb-2"><strong>Cited by:</strong> {{ cited_by }}</div>
     {% endif %}
 
     {# ---------- PMR BLOCK (Ollama output shown here) ---------- #}
     {% if pmr and (pmr.problem or pmr.method or pmr.results) %}
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <span class="badge text-bg-light border">
-          PMR source: {{ pmr_source }}
-        </span>
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="badge text-bg-light border">
+        PMR source: {{ pmr_source }}
+      </span>
+    </div>
+    <div class="pmr-grid">
+      <div class="pmr-card">
+        <h6>Problem</h6>
+        <p class="pmr-text">{{ pmr.problem or '—' }}</p>
       </div>
-      <div class="pmr-grid">
-        <div class="pmr-card">
-          <h6>Problem</h6>
-          <p class="pmr-text">{{ pmr.problem or '—' }}</p>
-        </div>
-        <div class="pmr-card">
-          <h6>Method</h6>
-          <p class="pmr-text">{{ pmr.method or '—' }}</p>
-        </div>
-        <div class="pmr-card">
-          <h6>Results</h6>
-          <p class="pmr-text">{{ pmr.results or '—' }}</p>
-        </div>
+      <div class="pmr-card">
+        <h6>Method</h6>
+        <p class="pmr-text">{{ pmr.method or '—' }}</p>
       </div>
+      <div class="pmr-card">
+        <h6>Results</h6>
+        <p class="pmr-text">{{ pmr.results or '—' }}</p>
+      </div>
+    </div>
     {% endif %}
     {# ---------------------------------------------------------- #}
 
-    <div class="abstract-box" style="margin:0;">
-      <pre style="white-space: pre-wrap; font-family: inherit;">{{ article.abstract or '[No abstract]' }}</pre>
+    <div class="abstract-box">
+      <pre>{{ (article.abstract or '[No abstract]') | hilite(highlight_terms) | safe }}</pre>
     </div>
 
+
+
     {% if article.extra_json %}
-      <details class="mt-2"><summary>Other columns</summary>
-        <table class="table table-sm mt-2">
-          {% for k,v in article.extra_json.items() %}
-            {% if k != 'pmr' %} {# hide the cached pmr dict from this table #}
-              <tr><th style="width: 200px;">{{ k }}</th><td>{{ v }}</td></tr>
-            {% endif %}
-          {% endfor %}
-        </table>
-      </details>
+    <details class="mt-2">
+      <summary>Other columns</summary>
+      <table class="table table-sm mt-2">
+        {% for k,v in article.extra_json.items() %}
+        {% if k != 'pmr' %} {# hide the cached pmr dict from this table #}
+        <tr>
+          <th style="width: 200px;">{{ k }}</th>
+          <td>{{ v }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </table>
+    </details>
     {% endif %}
   </div>
 
@@ -104,8 +111,8 @@
   </div>
 </div>
 {% else %}
-  <div class="alert alert-success">
-    All items in this dataset are labeled. Use <b>Review</b> to inspect or relabel, or <b>Upload</b> to start a new set.
-  </div>
+<div class="alert alert-success">
+  All items in this dataset are labeled. Use <b>Review</b> to inspect or relabel, or <b>Upload</b> to start a new set.
+</div>
 {% endif %}
 {% endblock %}

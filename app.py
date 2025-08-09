@@ -1,7 +1,8 @@
 import os
 import io
 import re
-import json
+import html
+import unicodedata
 import datetime as dt
 from typing import Optional, Tuple, List, Dict
 
@@ -33,7 +34,7 @@ class Dataset(db.Model):
     name = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=dt.datetime.utcnow)
 
-    # Relationship used for cascading deletes at the ORM level
+    # ORM cascade so deleting a dataset removes its articles
     articles = db.relationship(
         "Article",
         backref="dataset",
@@ -48,7 +49,7 @@ class Article(db.Model):
     title = db.Column(db.Text, nullable=True)
     year = db.Column(db.String(32), nullable=True)
     abstract = db.Column(db.Text, nullable=True)
-    extra_json = db.Column(db.JSON, nullable=True)  # remaining columns + PMR cache
+    extra_json = db.Column(db.JSON, nullable=True)  # remaining columns
     label = db.Column(db.String(8), nullable=True)  # 'yes'|'no'|None
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=dt.datetime.utcnow)
@@ -124,183 +125,98 @@ def extract_cited_by(extras: dict | None) -> Optional[int]:
     return int(m.group(0)) if m else None
 
 # ----------------------------
-# Improved heuristic PMR (no LLM)
+# Keyword highlighting (per dataset, stored in session)
 # ----------------------------
-SECTION_ALIASES: Dict[str, List[str]] = {
-    "problem": ["background", "introduction", "objective", "objectives", "aim", "aims",
-                "purpose", "motivation", "problem", "gap"],
-    "method":  ["methods", "materials and methods", "approach", "methodology", "design",
-                "proposed method", "proposed approach", "framework"],
-    "results": ["results", "findings", "evaluation", "experiments", "experiment",
-                "conclusion", "conclusions", "outcomes", "performance"]
-}
+def _normalize(s: str) -> str:
+    return unicodedata.normalize("NFKC", s or "").strip()
 
-HEADING_RE = re.compile(
-    r"(?mi)^\s*(Background|Introduction|Objectives?|Aims?|Purpose|Motivation|Problem|Gap|"
-    r"Methods?|Materials and Methods|Approach|Methodology|Design|Proposed (?:Method|Approach)|Framework|"
-    r"Results?|Findings?|Evaluation|Experiments?|Conclusions?|Outcomes?|Performance)\s*:\s*"
-)
+def _parse_keywords(q: str) -> list[str]:
+    if not q:
+        return []
+    raw = [t.strip() for t in re.split(r"[,\n;]+", q) if t.strip()]
+    seen, out = set(), []
+    for t in raw:
+        nt = _normalize(t)
+        if nt and nt.lower() not in seen:
+            seen.add(nt.lower())
+            out.append(nt)
+    return out
 
-PROBLEM_WEIGHTS: Dict[str, int] = {
-    "problem":3, "challenge":3, "gap":3, "issue":2, "limitation":2, "bottleneck":2,
-    "lack":2, "scarcity":2, "need":2, "motivation":2, "objective":2, "aim":2, "goal":2,
-    "research question":3, "we address":3, "we tackle":3, "we investigate":2,
-    "this paper addresses":3, "this work addresses":3
-}
-METHOD_WEIGHTS: Dict[str, int] = {
-    "we propose":4, "we present":3, "we introduce":3, "we develop":3, "we design":3,
-    "this paper proposes":4, "this work proposes":4,
-    "method":2, "approach":2, "framework":2, "algorithm":3, "model":2, "architecture":2,
-    "pipeline":2, "procedure":2, "protocol":3, "scheme":2, "system":2, "implementation":2,
-    "dataset":1, "training":1, "inference":1, "evaluation protocol":2
-}
-RESULTS_WEIGHTS: Dict[str, int] = {
-    "we show":3, "we demonstrate":3, "we find":2, "we observe":2, "we report":2,
-    "results indicate":3, "results show":3, "experiments show":3, "evaluation shows":3,
-    "achieve":2, "achieves":2, "achieved":2, "outperform":3, "improve":2, "improves":2, "improved":2,
-    "state-of-the-art":3, "sota":3, "significant":2, "statistically significant":3,
-    "accuracy":1, "precision":1, "recall":1, "f1":1, "f1-score":1, "auroc":2, "auc":1, "rmse":1,
-    "%":1, "percent":1, "p<":2, "p <":2
-}
+def _terms_for_dataset(dsid: int | None) -> list[str]:
+    if not dsid:
+        return []
+    dct = session.get("highlight_terms", {})
+    return dct.get(str(dsid), [])
 
-ABBREV_FIX = {
-    "e.g.": "eg", "i.e.": "ie", "et al.": "et al", "Fig.": "Fig", "fig.": "fig",
-    "Dr.": "Dr", "Mr.": "Mr", "Ms.": "Ms", "Prof.": "Prof", "vs.": "vs",
-}
-_SENT_SPLIT = re.compile(r"(?<!\b[A-Z][a-z])(?<=[.!?])\s+(?=[A-Z(])")
+def _store_terms_for_dataset(dsid: int | None, terms: list[str]) -> None:
+    if not dsid:
+        return
+    dct = session.get("highlight_terms", {})
+    dct[str(dsid)] = terms
+    session["highlight_terms"] = dct
+    
+    
+    
+    
+    
+    
+    
+    
+@app.route("/highlight/remove", methods=["POST"])
+def remove_highlight():
+    dsid = get_active_dataset_id()
+    term = (request.form.get("term") or "").strip()
+    terms = _terms_for_dataset(dsid)
+    if term:
+        terms = [t for t in terms if t.lower() != term.lower()]
+        _store_terms_for_dataset(dsid, terms)
+        flash(f"Removed keyword: {term}", "secondary")
+    return redirect(request.referrer or (url_for("label_next", dataset_id=dsid) if dsid else url_for("upload")))
 
-def _normalize_spaces(text: str) -> str:
-    return re.sub(r"\s+", " ", text).strip()
+@app.route("/highlight/clear", methods=["POST"])
+def clear_highlight():
+    dsid = get_active_dataset_id()
+    _store_terms_for_dataset(dsid, [])
+    flash("Highlight keywords cleared.", "secondary")
+    return redirect(request.referrer or (url_for("label_next", dataset_id=dsid) if dsid else url_for("upload")))
+ 
+    
+    
 
-def _pretokenize(text: str) -> str:
-    t = text
-    for k, v in ABBREV_FIX.items():
-        t = t.replace(k, v)
-    return t
+@app.template_filter("hilite")
+def jinja_hilite(text: str, terms: list[str] | None = None) -> str:
+    """Wrap case-insensitive matches with <mark class="kw">..</mark>. HTML-safe."""
+    if not text:
+        return ""
+    safe = html.escape(text)
+    terms = terms or []
+    words = sorted({t for t in terms if t}, key=len, reverse=True)
+    if not words:
+        return safe
+    pat = re.compile("(" + "|".join(map(lambda w: re.escape(w), words)) + ")", re.IGNORECASE)
+    def _wrap(m):
+        return f'<mark class="kw">{m.group(0)}</mark>'
+    return pat.sub(_wrap, safe)
 
-def _split_sentences(text: str) -> List[str]:
-    t = _pretokenize(text)
-    parts = _SENT_SPLIT.split(_normalize_spaces(t))
-    return [p.strip() for p in parts if p.strip()]
-
-def _soft_clip(s: str, max_len: int = 280) -> str:
-    s = s.strip()
-    if len(s) <= max_len:
-        return s
-    cut = s.rfind(". ", 0, max_len)
-    if cut == -1:
-        cut = s.rfind("; ", 0, max_len)
-    if cut == -1:
-        cut = s.rfind(", ", 0, max_len)
-    if cut == -1:
-        cut = s.rfind(" ", 0, max_len)
-    if cut == -1:
-        cut = max_len
-    return s[:cut].rstrip(" ,;") + "…"
-
-def _score_sentence(s: str, weights: Dict[str, int]) -> int:
-    ls = s.lower()
-    score = 0
-    for term, w in weights.items():
-        if term in ls:
-            score += w
-    tok_count = len(ls.split())
-    if 10 <= tok_count <= 50:
-        score += 1
-    if weights is RESULTS_WEIGHTS and re.search(r"\d|%", ls):
-        score += 1
-    return score
-
-def _pick_best_weighted(sentences: List[str], weights: Dict[str, int]) -> Optional[str]:
-    if not sentences:
-        return None
-    best_idx, best_score = -1, -10**9
-    for i, s in enumerate(sentences):
-        sc = _score_sentence(s, weights)
-        if sc > best_score:
-            best_idx, best_score = i, sc
-    if best_score <= 0:
-        return None
-    return sentences[best_idx].strip()
-
-def _parse_structured_sections(text: str) -> Optional[Dict[str, str]]:
-    matches = list(HEADING_RE.finditer(text))
-    if not matches:
-        return None
-    sec_map: Dict[str, List[str]] = {"problem": [], "method": [], "results": []}
-    for idx, m in enumerate(matches):
-        label = m.group(1).lower()
-        start = m.end()
-        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
-        content = text[start:end].strip()
-        if not content:
-            continue
-        for bucket, aliases in SECTION_ALIASES.items():
-            if any(a in label for a in aliases):
-                sec_map[bucket].append(content)
-                break
-    out = {}
-    for k, vs in sec_map.items():
-        if vs:
-            out[k] = _soft_clip(_normalize_spaces(" ".join(vs)))
-    return out if out else None
-
-def summarize_pmr(abstract: Optional[str]) -> dict:
-    if not abstract or not abstract.strip():
-        return {"problem": None, "method": None, "results": None}
-    text = abstract.strip()
-
-    structured = _parse_structured_sections(text)
-    if structured:
-        return {
-            "problem": structured.get("problem"),
-            "method": structured.get("method"),
-            "results": structured.get("results"),
-        }
-
-    sentences = _split_sentences(text)
-    if not sentences:
-        return {"problem": None, "method": None, "results": None}
-
-    problem = _pick_best_weighted(sentences, PROBLEM_WEIGHTS)
-    method  = _pick_best_weighted(sentences, METHOD_WEIGHTS)
-    results = _pick_best_weighted(sentences, RESULTS_WEIGHTS)
-
-    n = len(sentences)
-    if not problem:
-        problem = sentences[0].strip()
-    if not method:
-        mid_idx = min(1, n - 1) if n <= 3 else n // 2
-        method = sentences[mid_idx].strip()
-    if not results:
-        tail = sentences[-3:] if n >= 3 else sentences[-1:]
-        numeric = next((s for s in tail if re.search(r"\d|%", s)), None)
-        results = (numeric or tail[-1]).strip()
-
-    return {
-        "problem": _soft_clip(problem),
-        "method": _soft_clip(method),
-        "results": _soft_clip(results),
-    }
-
-def ensure_pmr_cached(article: Article, force: bool = False) -> Tuple[dict, str]:
-    extras = article.extra_json or {}
-    cached = extras.get("pmr")
-
-    def has_content(d: Optional[dict]) -> bool:
-        return isinstance(d, dict) and any(d.get(k) for k in ("problem", "method", "results"))
-
-    if (not force) and has_content(cached):
-        return cached, "cache"
-
-    pmr = summarize_pmr(article.abstract or "")
-    if has_content(pmr):
-        extras["pmr"] = pmr
-        article.extra_json = extras
-        db.session.commit()
-        return pmr, "heuristic"
+# ----------------------------
+# Navbar context (datasets, counts, keywords, progress)
+# ----------------------------
+@app.context_processor
+def inject_nav():
+    dsid = get_active_dataset_id()
+    datasets = Dataset.query.order_by(Dataset.created_at.desc()).all()
+    if dsid:
+        total, yes, no, unlabeled = counts(dsid)
     else:
-        return pmr, "heuristic"
+        total = yes = no = unlabeled = 0
+    hl_terms = _terms_for_dataset(dsid)
+    return {
+        "active_dataset_id": dsid,
+        "datasets_for_nav": datasets,
+        "nav_counts": {"total": total, "yes": yes, "no": no, "unlabeled": unlabeled},
+        "highlight_terms": hl_terms,
+        "highlight_query": ", ".join(hl_terms),
+    }
 
 # ----------------------------
 # Routes
@@ -365,30 +281,49 @@ def switch(dataset_id):
 @app.route("/dataset/<int:dataset_id>/delete", methods=["POST"])
 def delete_dataset(dataset_id):
     """
-    Delete a dataset and all its articles.
-    Uses ORM cascade (Dataset.articles) and also falls back to explicit delete for safety.
+    Delete a dataset and all its articles (uses ORM cascade; includes explicit child delete for safety).
     """
     ds = Dataset.query.get_or_404(dataset_id)
 
-    # If the dataset being deleted is the active one, clear it from session
+    # Clear active dataset if we're deleting it
     if session.get("dataset_id") == dataset_id:
         session.pop("dataset_id", None)
 
-    # ORM cascade should handle children; explicit delete is a safe fallback for SQLite configs
-    # that might not enforce FK ON DELETE. Either is fine; using both is safe.
-    # Explicit child delete (fast bulk)
+    # Explicit child delete (paranoid safety for SQLite configs without FK enforcement)
     Article.query.filter_by(dataset_id=dataset_id).delete(synchronize_session=False)
-
-    # Now delete the dataset row
     db.session.delete(ds)
     db.session.commit()
 
     flash(f"Dataset {dataset_id} deleted.", "success")
     return redirect(url_for("upload"))
 
+@app.route("/highlight", methods=["POST"])
+def set_highlight():
+    dsid = get_active_dataset_id()
+    query = request.form.get("keywords", "")
+    terms = _parse_keywords(query)
+    _store_terms_for_dataset(dsid, terms)
+    flash("Highlight keywords updated.", "success")
+    next_url = request.referrer or (url_for("label_next", dataset_id=dsid) if dsid else url_for("upload"))
+    return redirect(next_url)
+
 @app.route("/label/<int:dataset_id>")
 def label_next(dataset_id):
-    a = Article.query.filter_by(dataset_id=dataset_id, label=None).order_by(Article.id.asc()).first()
+    # If we arrive here with ?skip_id=XYZ, jump to the next unlabeled with a higher id
+    skip_id = request.args.get("skip_id", type=int)
+
+    base_q = (Article.query
+              .filter_by(dataset_id=dataset_id, label=None)
+              .order_by(Article.id.asc()))
+
+    if skip_id:
+        a = base_q.filter(Article.id > skip_id).first()
+        if not a:
+            # wrap around to the first unlabeled if we were at the end
+            a = base_q.first()
+    else:
+        a = base_q.first()
+
     total, yes, no, unlabeled = counts(dataset_id)
 
     doi = extract_doi(a.extra_json) if a else None
@@ -397,60 +332,87 @@ def label_next(dataset_id):
 
     pct_done = int(round(((yes + no) / total) * 100)) if total else 0
 
-    pmr = {"problem": None, "method": None, "results": None}
-    pmr_source = "none"
-    if a:
-        force = request.args.get("force") == "1"
-        pmr, pmr_source = ensure_pmr_cached(a, force=force)
-
     return render_template(
         "label.html",
         article=a, dataset_id=dataset_id,
         total=total, yes=yes, no=no, unlabeled=unlabeled,
         doi=doi, source_title=source_title, cited_by=cited_by,
-        pct_done=pct_done, pmr=pmr, pmr_source=pmr_source
+        pct_done=pct_done
     )
 
-@app.route("/label/submit/<int:article_id>", methods=["POST"])
-def label_submit(article_id):
-    a = Article.query.get_or_404(article_id)
-    decision = request.form.get("decision")  # yes/no/skip
-    if decision in ("yes", "no"):
-        a.label = decision
-        a.notes = request.form.get("notes") or a.notes
-        db.session.commit()
-    elif decision == "skip":
-        pass
-    return redirect(url_for("label_next", dataset_id=a.dataset_id))
 
+
+
+# review route
 @app.route("/review/<int:dataset_id>")
 def review(dataset_id):
     status = request.args.get("status", "all")  # all|yes|no|unlabeled
+    hide = request.args.get("hide")             # 'labeled' or None
+
     q = Article.query.filter_by(dataset_id=dataset_id)
+
     if status == "yes":
         q = q.filter_by(label="yes")
     elif status == "no":
         q = q.filter_by(label="no")
     elif status == "unlabeled":
-        q = q.filter_by(label=None)
+        q = q.filter(Article.label.is_(None))
+    else:
+        # status == 'all'
+        if hide == "labeled":
+            q = q.filter(Article.label.is_(None))  # hide labeled in 'all'
+
     rows = q.order_by(Article.id.asc()).all()
     total, yes, no, unlabeled = counts(dataset_id)
     return render_template(
-        "review.html", rows=rows, dataset_id=dataset_id, status=status,
-        total=total, yes=yes, no=no, unlabeled=unlabeled
+        "review.html",
+        rows=rows, dataset_id=dataset_id, status=status,
+        total=total, yes=yes, no=no, unlabeled=unlabeled, hide=hide
     )
 
 @app.route("/relabel/<int:article_id>", methods=["POST"])
 def relabel(article_id):
     a = Article.query.get_or_404(article_id)
+
     new_label = request.form.get("label")  # yes|no|clear
     if new_label == "clear":
         a.label = None
     elif new_label in ("yes", "no"):
         a.label = new_label
-    a.notes = request.form.get("notes") or a.notes
+
+    notes = request.form.get("notes")
+    if notes is not None:
+        a.notes = notes
+
     db.session.commit()
-    return redirect(url_for("review", dataset_id=a.dataset_id, status=request.args.get("status", "all")))
+
+    # preserve current filters so the row can disappear if hidden
+    status = request.args.get("status", "all")
+    hide = request.args.get("hide")
+
+    return redirect(url_for("review", dataset_id=a.dataset_id, status=status, hide=hide))
+
+
+@app.route("/label/submit/<int:article_id>", methods=["POST"])
+def label_submit(article_id):
+    a = Article.query.get_or_404(article_id)
+    decision = request.form.get("decision")  # "yes" | "no" | "skip"
+    notes = request.form.get("notes")
+
+    if decision in ("yes", "no"):
+        a.label = decision
+        if notes is not None:
+            a.notes = notes
+        db.session.commit()
+        return redirect(url_for("label_next", dataset_id=a.dataset_id))
+
+    if decision == "skip":
+        # don’t change label; jump to the next unlabeled with higher id
+        return redirect(url_for("label_next", dataset_id=a.dataset_id, skip_id=a.id))
+
+    # default safety: reload current article
+    return redirect(url_for("label_next", dataset_id=a.dataset_id))
+
 
 @app.route("/export/<int:dataset_id>")
 def export(dataset_id):
@@ -478,16 +440,6 @@ def export(dataset_id):
         as_attachment=True,
         download_name=f"dataset_{dataset_id}_labeled.csv",
     )
-
-@app.route("/debug/pmr")
-def debug_pmr():
-    sample_abs = (
-        "Background: Cross-silo hospitals need collaborative modeling without exposing patient data. "
-        "Methods: We design a federated learning protocol with secure aggregation and differential privacy. "
-        "Results: On real EHRs, our approach improves AUROC by 8–12% over centralized baselines while complying with HIPAA."
-    )
-    out = summarize_pmr(sample_abs)
-    return {"source": "heuristic", "pmr": out}, 200, {"Content-Type": "application/json"}
 
 # ----------------------------
 # CLI entry

@@ -1,80 +1,172 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-baseline">
-    <h3>Review &amp; Relabel</h3>
-    <div>
-        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Back to
-            labeling</a>
-        <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
-    </div>
+  <h3>Review &amp; Relabel</h3>
+  <div>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">
+      Back to labeling
+    </a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">
+      Export CSV
+    </a>
+  </div>
 </div>
+
 <div class="mb-2 muted">
-    Dataset {{ dataset_id }} &middot;
-    Yes: <b>{{ yes }}</b> &nbsp;
-    No: <b>{{ no }}</b> &nbsp;
-    Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
-    Total: <b>{{ total }}</b>
+  Dataset {{ dataset_id }} &middot;
+  Yes: <b>{{ yes }}</b> &nbsp;
+  No: <b>{{ no }}</b> &nbsp;
+  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
+  Total: <b>{{ total }}</b>
 </div>
 
-<div class="mb-3">
-    <a class="btn btn-sm btn-{{ 'primary' if status=='all' else 'outline-primary' }}"
-        href="{{ url_for('review', dataset_id=dataset_id, status='all') }}">All</a>
-    <a class="btn btn-sm btn-{{ 'success' if status=='yes' else 'outline-success' }}"
-        href="{{ url_for('review', dataset_id=dataset_id, status='yes') }}">Related</a>
-    <a class="btn btn-sm btn-{{ 'danger' if status=='no' else 'outline-danger' }}"
-        href="{{ url_for('review', dataset_id=dataset_id, status='no') }}">Not related</a>
-    <a class="btn btn-sm btn-{{ 'secondary' if status=='unlabeled' else 'outline-secondary' }}"
-        href="{{ url_for('review', dataset_id=dataset_id, status='unlabeled') }}">Unlabeled</a>
+<div class="mb-3 d-flex flex-wrap gap-2">
+  <a class="btn btn-sm btn-{{ 'primary' if status=='all' else 'outline-primary' }}"
+     href="{{ url_for('review', dataset_id=dataset_id, status='all') }}">
+    All
+  </a>
+  <a class="btn btn-sm btn-{{ 'success' if status=='yes' else 'outline-success' }}"
+     href="{{ url_for('review', dataset_id=dataset_id, status='yes') }}">
+    Related
+  </a>
+  <a class="btn btn-sm btn-{{ 'danger' if status=='no' else 'outline-danger' }}"
+     href="{{ url_for('review', dataset_id=dataset_id, status='no') }}">
+    Not related
+  </a>
+  <a class="btn btn-sm btn-{{ 'secondary' if status=='unlabeled' else 'outline-secondary' }}"
+     href="{{ url_for('review', dataset_id=dataset_id, status='unlabeled') }}">
+    Unlabeled
+  </a>
+
+  {% if status == 'all' %}
+    {% if hide == 'labeled' %}
+      <a class="btn btn-sm btn-dark"
+         href="{{ url_for('review', dataset_id=dataset_id, status='all') }}">
+        Show labeled
+      </a>
+    {% else %}
+      <a class="btn btn-sm btn-outline-dark"
+         href="{{ url_for('review', dataset_id=dataset_id, status='all', hide='labeled') }}">
+        Hide labeled
+      </a>
+    {% endif %}
+  {% endif %}
 </div>
 
-<table class="table table-hover">
-    <thead>
-        <tr>
-            <th style="width: 70px;">ID</th>
-            <th>Title</th>
-            <th style="width: 80px;">Year</th>
-            <th>Abstract</th>
-            <th style="width: 240px;">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for a in rows %}
-        <tr>
-            <td class="mono">{{ a.id }}</td>
-            <td>{{ a.title or '' }}</td>
-            <td>
-                {{ a.year or '' }}
-                {% if a.extra_json %}
-                {% for key, value in a.extra_json.items() %}
-                {% if 'doi' in key|lower %}
-                <div><a href="https://doi.org/{{ value }}" target="_blank">{{ value }}</a></div>
-                {% endif %}
-                {% endfor %}
-                {% endif %}
-            </td>
+<table class="table table-hover align-middle">
+  <thead>
+    <tr>
+      <th style="width:72px;">ID</th>
+      <th>Title</th>
+      <th style="width:220px;">Year / DOI / Cited by</th>
+      <th>Abstract</th>
+      <th style="width:260px;">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in rows %}
+    <tr>
+      <td class="mono">{{ a.id }}</td>
 
-            <td class="abstract-box">{{ (a.abstract or '')[:500] }}{% if a.abstract and a.abstract|length>500 %}…{%
-                endif %}</td>
-            <td>
-                <form method="post" action="{{ url_for('relabel', article_id=a.id, status=status) }}"
-                    class="d-flex flex-column gap-1">
-                    <input class="form-control form-control-sm" name="notes" placeholder="Notes (optional)"
-                        value="{{ a.notes or '' }}">
-                    <div class="btn-group">
-                        <button name="label" value="yes"
-                            class="btn btn-sm btn-success {{ 'active' if a.label=='yes' else '' }}">Related</button>
-                        <button name="label" value="no"
-                            class="btn btn-sm btn-danger {{ 'active' if a.label=='no' else '' }}">Not</button>
-                        <button name="label" value="clear" class="btn btn-sm btn-outline-secondary">Clear</button>
-                    </div>
-                </form>
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="5" class="muted">No rows for this filter.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
+      <!-- Title + Source -->
+      <td>
+        <div class="fw-semibold">{{ a.title or '' }}</div>
+        {% if a.extra_json %}
+          {% set src_val = None %}
+          {% for key, value in a.extra_json.items() %}
+            {% if src_val is none and (
+              'source title' in key|lower or
+              'journal' in key|lower or
+              'conference' in key|lower or
+              'booktitle' in key|lower or
+              'publication title' in key|lower or
+              'venue' in key|lower
+            ) %}
+              {% set src_val = value %}
+            {% endif %}
+          {% endfor %}
+          {% if src_val %}
+            <div class="muted small">Source: {{ src_val }}</div>
+          {% endif %}
+        {% endif %}
+      </td>
+
+      <!-- Year + DOI + Cited by -->
+      <td>
+        <div>{{ a.year or '' }}</div>
+        {% if a.extra_json %}
+          {# DOI #}
+          {% set doi_val = None %}
+          {% for key, value in a.extra_json.items() %}
+            {% if doi_val is none and 'doi' in key|lower %}
+              {% set raw = (value|string).strip() %}
+              {% set doi_val = raw
+                 | replace('https://doi.org/','')
+                 | replace('http://doi.org/','')
+                 | replace('DOI:','')
+                 | replace('doi:','')
+                 | trim %}
+            {% endif %}
+          {% endfor %}
+          {% if doi_val %}
+            <div class="small">
+              <a href="https://doi.org/{{ doi_val }}" target="_blank" rel="noopener">DOI: {{ doi_val }}</a>
+            </div>
+          {% endif %}
+
+          {# Cited by #}
+          {% set cited_val = None %}
+          {% for key, value in a.extra_json.items() %}
+            {% if cited_val is none and (
+              'cited by' in key|lower or
+              'citations' in key|lower or
+              'times cited' in key|lower
+            ) %}
+              {% set cited_val = value %}
+            {% endif %}
+          {% endfor %}
+          {% if cited_val %}
+            <div class="muted small">Cited by: {{ cited_val }}</div>
+          {% endif %}
+        {% endif %}
+      </td>
+
+      <!-- Abstract -->
+      <td class="abstract-box">
+        {% set abs_text = a.abstract or '[No abstract]' %}
+        {% set short_abs = abs_text[:800] ~ ('…' if abs_text|length > 800 else '') %}
+        <pre class="mb-0">{{ short_abs | hilite(highlight_terms) | safe }}</pre>
+      </td>
+
+      <!-- Actions -->
+      <td>
+        <form method="post"
+              action="{{ url_for('relabel', article_id=a.id, status=status, hide=hide) }}"
+              class="d-flex flex-column gap-2">
+          <input class="form-control form-control-sm" name="notes" placeholder="Notes (optional)"
+                 value="{{ a.notes or '' }}">
+          <div class="btn-group" role="group" aria-label="Relabel">
+            <button type="submit" name="label" value="yes"
+                    class="btn btn-sm btn-success {{ 'active' if a.label=='yes' else '' }}">
+              Related
+            </button>
+            <button type="submit" name="label" value="no"
+                    class="btn btn-sm btn-danger {{ 'active' if a.label=='no' else '' }}">
+              Not
+            </button>
+            <button type="submit" name="label" value="clear"
+                    class="btn btn-sm btn-outline-secondary">
+              Clear
+            </button>
+          </div>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="5" class="muted">No rows for this filter.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
 {% endblock %}
