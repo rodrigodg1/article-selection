@@ -1,5 +1,80 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+  /* Centered actions below the abstract */
+  .label-actions { margin-top: 1rem; }
+  .label-actions .btn { min-width: 140px; }
+  .label-actions .actions-group { gap: .5rem; }
+
+  /* Notes input centered with a comfortable width */
+  .label-actions .notes-input { width: clamp(260px, 60%, 520px); }
+
+  /* PMR cards */
+  .pmr-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+    margin-bottom: .5rem;
+  }
+  .pmr-card { border: 1px solid #e5e7eb; border-radius: .5rem; padding: .75rem; }
+  .pmr-text { margin: 0; }
+  @media (max-width: 992px) { .pmr-grid { grid-template-columns: 1fr; } }
+
+  /* Abstract box with centered title */
+  .abstract-box {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    text-align: center;
+  }
+  body.dark-mode .abstract-box {
+    background: #1b1b1b;
+    border: 1px solid #333;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .abstract-title {
+    font-weight: bold;
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+  }
+  .abstract-box pre {
+    white-space: pre-wrap;
+    font-family: "Georgia", serif;
+    margin: 0 auto;
+    font-size: 1.2rem;
+    line-height: 1.6;
+    max-width: 98ch;
+    text-align: left;
+  }
+
+  /* Categories block */
+  .category-box {
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+  }
+  body.dark-mode .category-box { border-color: #333; }
+  .category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .2rem .6rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    font-size: .86rem;
+    margin: .2rem .3rem .2rem 0;
+  }
+  body.dark-mode .category-chip {
+    background: #333; border-color: #555;
+  }
+  .category-chip form { display: inline; }
+  .category-controls .form-label { margin-bottom: .25rem; }
+</style>
+
 <div class="d-flex justify-content-between align-items-baseline">
   <h3>Label articles</h3>
   <div>
@@ -17,7 +92,6 @@
   Total: <b>{{ total }}</b>
 </div>
 
-{# Progress bar #}
 {% if total and total > 0 %}
 <div class="mb-3">
   <div class="d-flex justify-content-between small mb-1">
@@ -25,10 +99,9 @@
     <div><span class="muted">Remaining: {{ unlabeled }}</span></div>
   </div>
   <div class="progress" role="progressbar" aria-valuenow="{{ pct_done }}" aria-valuemin="0" aria-valuemax="100">
-    <div
-      class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
-      style="width: '{{ pct_done|default(0, true) }}%';">
-      {{ pct_done }}%
+    <div class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
+         style="width: {{ pct_done|default(0)|int }}%;">
+      {{ pct_done|default(0)|int }}%
     </div>
   </div>
 </div>
@@ -37,11 +110,10 @@
 {% if article %}
 <div class="card mb-3">
   <div class="card-body">
-    <h5 class="card-title">{{ article.title or '[No title]' }}</h5>
-    <h6 class="card-subtitle mb-1 text-muted">{{ article.year or '' }}</h6>
 
     {% if doi %}
-    <div class="mb-1"><strong>DOI:</strong>
+    <div class="mb-1">
+      <strong>DOI:</strong>
       <a href="https://doi.org/{{ doi }}" target="_blank" rel="noopener">{{ doi }}</a>
     </div>
     {% endif %}
@@ -54,60 +126,100 @@
     <div class="mb-2"><strong>Cited by:</strong> {{ cited_by }}</div>
     {% endif %}
 
-    {# ---------- PMR BLOCK (Ollama output shown here) ---------- #}
     {% if pmr and (pmr.problem or pmr.method or pmr.results) %}
     <div class="d-flex align-items-center gap-2 mb-2">
-      <span class="badge text-bg-light border">
-        PMR source: {{ pmr_source }}
-      </span>
+      <span class="badge text-bg-light border">PMR source: {{ pmr_source }}</span>
     </div>
     <div class="pmr-grid">
-      <div class="pmr-card">
-        <h6>Problem</h6>
-        <p class="pmr-text">{{ pmr.problem or '—' }}</p>
-      </div>
-      <div class="pmr-card">
-        <h6>Method</h6>
-        <p class="pmr-text">{{ pmr.method or '—' }}</p>
-      </div>
-      <div class="pmr-card">
-        <h6>Results</h6>
-        <p class="pmr-text">{{ pmr.results or '—' }}</p>
-      </div>
+      <div class="pmr-card"><h6>Problem</h6><p class="pmr-text">{{ pmr.problem or '—' }}</p></div>
+      <div class="pmr-card"><h6>Method</h6><p class="pmr-text">{{ pmr.method or '—' }}</p></div>
+      <div class="pmr-card"><h6>Results</h6><p class="pmr-text">{{ pmr.results or '—' }}</p></div>
     </div>
     {% endif %}
-    {# ---------------------------------------------------------- #}
 
     <div class="abstract-box">
-      <pre>{{ (article.abstract or '[No abstract]') |  hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
+      <div class="abstract-title">{{ article.title or '[No title]' }}</div>
+      <pre>{{ (article.abstract or '[No abstract]') | hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
     </div>
 
+    {# === CATEGORIES (abaixo do abstract) === #}
+    <div class="category-box">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <h6 class="mb-0">Categorias</h6>
+        {% if article.categories and article.categories|length > 0 %}
+          <small class="text-muted">{{ article.categories|length }} atribuída(s)</small>
+        {% endif %}
+      </div>
 
+      {# Chips das categorias atuais #}
+      <div class="mb-2">
+        {% if article.categories and article.categories|length > 0 %}
+          {% for c in article.categories %}
+            <span class="category-chip">
+              {{ c.name }}
+              <form method="post" action="{{ url_for('remove_category', article_id=article.id, category_id=c.id) }}">
+                <button class="btn btn-sm btn-outline-danger py-0 px-2">x</button>
+              </form>
+            </span>
+          {% endfor %}
+        {% else %}
+          <div class="muted small">Nenhuma categoria atribuída.</div>
+        {% endif %}
+      </div>
+
+      {# Controle: adicionar em existente OU criar nova #}
+      <div class="category-controls">
+        <form method="post" action="{{ url_for('categorize', article_id=article.id) }}" class="row g-2">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Adicionar a uma existente</label>
+            <div class="input-group">
+              <select class="form-select" name="category_id">
+                <option value="">— Selecione —</option>
+                {% for cat in categories %}
+                  <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-outline-primary" name="action" value="assign" type="submit">Adicionar</button>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Criar nova e atribuir</label>
+            <div class="input-group">
+              <input class="form-control" type="text" name="new_category" placeholder="Ex.: 'Survey Methods'">
+              <button class="btn btn-primary" name="action" value="create_assign" type="submit">Criar & atribuir</button>
+            </div>
+          </div>
+        </form>
+        <small class="muted d-block mt-1">Dica: você pode criar categorias temáticas (ex.: “LLM in ESG”, “Privacy in 6G”, “Blockchain scalability”).</small>
+      </div>
+    </div>
+    {# === FIM CATEGORIES === #}
+
+    <div class="label-actions text-center">
+      <form method="post" action="{{ url_for('label_submit', article_id=article.id) }}"
+            class="d-flex flex-column align-items-center gap-3">
+        <div class="d-flex flex-wrap justify-content-center actions-group">
+          <button name="decision" value="no"   class="btn btn-outline-danger btn-lg">Not related</button>
+          <button name="decision" value="skip" class="btn btn-outline-secondary btn-lg">Skip</button>
+          <button name="decision" value="yes"  class="btn btn-success btn-lg">Related</button>
+        </div>
+        <input class="form-control form-control-sm notes-input" name="notes" placeholder="Notes (optional)">
+      </form>
+    </div>
 
     {% if article.extra_json %}
-    <details class="mt-2">
+    <details class="mt-3">
       <summary>Other columns</summary>
       <table class="table table-sm mt-2">
         {% for k,v in article.extra_json.items() %}
-        {% if k != 'pmr' %} {# hide the cached pmr dict from this table #}
-        <tr>
-          <th style="width: 200px;">{{ k }}</th>
-          <td>{{ v }}</td>
-        </tr>
+        {% if k != 'pmr' %}
+        <tr><th style="width: 200px;">{{ k }}</th><td>{{ v }}</td></tr>
         {% endif %}
         {% endfor %}
       </table>
     </details>
     {% endif %}
-  </div>
 
-  <div class="sticky-footer d-flex gap-2">
-    <form method="post" action="{{ url_for('label_submit', article_id=article.id) }}" class="d-flex w-100 gap-2">
-      <input class="form-control" name="notes" placeholder="Notes (optional)">
-      <button name="decision" value="no" class="btn btn-outline-danger">Not related</button>
-      <button name="decision" value="skip" class="btn btn-outline-secondary">Skip</button>
-      <button name="decision" value="yes" class="btn btn-success">Related</button>
-    </form>
   </div>
 </div>
 {% else %}
