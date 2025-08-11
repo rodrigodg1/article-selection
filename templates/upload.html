@@ -34,15 +34,17 @@
       <td class="text-muted">{{ ds.created_at.strftime('%Y-%m-%d %H:%M') if ds.created_at else '' }}</td>
       <td>
         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('label_next', dataset_id=ds.id) }}">Open</a>
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('review', dataset_id=ds.id) }}">Review</a>
-        <form method="post" action="{{ url_for('delete_dataset', dataset_id=ds.id) }}"
-              style="display:inline" onsubmit="return confirm('Delete this dataset and all its articles?');">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manage', dataset_id=ds.id) }}">Review</a>
+        <form method="post" action="{{ url_for('delete_dataset', dataset_id=ds.id) }}" style="display:inline"
+          onsubmit="return confirm('Delete this dataset and all its articles?');">
           <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
         </form>
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="4" class="text-muted">No datasets yet.</td></tr>
+    <tr>
+      <td colspan="4" class="text-muted">No datasets yet.</td>
+    </tr>
     {% endfor %}
   </tbody>
 </table>

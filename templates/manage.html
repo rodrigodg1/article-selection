@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  /* ---- Sidebar ---- */
+  .cat-sidebar {
+    position: sticky;
+    top: 5rem;
+    align-self: start;
+    max-height: calc(100vh - 6rem);
+    overflow: auto;
+  }
+  .cat-list .form-check { margin-bottom: .25rem; }
+  .cat-actions { gap: .5rem; }
+
+  /* ---- Table sizing (desktop-first) ---- */
+  .review-table { table-layout: auto; }
+
+  /* ID */
+  .review-table th:nth-child(1) { width: 58px; }
+
+  /* Title & Categories – roomy so Manage doesn’t wrap */
+  .review-table th:nth-child(2) { width: 46%; min-width: 520px; }
+
+  /* Year – keep tight */
+  .review-table th:nth-child(3) { width: 96px; }
+
+  /* Abstract – comfortable reading width; grows as needed */
+  .review-table th:nth-child(4) { width: 34%; min-width: 420px; }
+
+  /* Actions */
+  .review-table th:nth-child(5) { width: 260px; }
+
+  /* Title cell: keep long words from exploding layout */
+  .review-table td:nth-child(2) { word-break: break-word; }
+
+  /* Title row layout */
+  .title-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+  .title-text { flex: 1 1 auto; min-width: 0; }
+  .manage-btn { white-space: nowrap; flex: 0 0 auto; }
+
+  /* Make title look like a link (button for a11y) */
+  .title-toggle {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--bs-link-color, #0d6efd);
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 600;
+    text-align: left;
+  }
+  .title-toggle:hover { opacity: .85; }
+
+  /* Meta row under title (source, etc.) */
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .75rem;
+    margin-top: .25rem;
+  }
+  .meta-item { font-size: .86rem; opacity: .9; }
+
+  /* Category chips under title */
+  .cat-row { margin-top: .25rem; }
+  .cat-row .chip { margin-right: .25rem; margin-bottom: .25rem; }
+
+  /* Abstract preview with expand option */
+  .abstract-box { font-size: 1rem; line-height: 1.6; }
+  .abstract-snippet { max-height: 8rem; overflow: hidden; transition: max-height 0.3s ease; }
+  .abstract-expanded { max-height: none !important; }
+  .toggle-abs { display: inline-block; margin-top: .25rem; text-decoration: none; }
+
+  /* Inline per-article category manager */
+  .inline-cat-manager {
+    background: rgba(0, 0, 0, .02);
+    border: 1px solid #e5e7eb;
+    border-radius: .5rem;
+    padding: .75rem;
+    margin-top: .5rem;
+  }
+  body.dark-mode .inline-cat-manager {
+    background: rgba(255,255,255,.03);
+    border-color: #333;
+  }
+  .inline-cat-manager .category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .15rem .5rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    font-size: .82rem;
+    margin: .15rem .25rem .15rem 0;
+  }
+  body.dark-mode .inline-cat-manager .category-chip {
+    background: #333;
+    border-color: #555;
+  }
+  .inline-cat-manager .category-chip form { display: inline; }
+
+  /* Year col */
+  .year-col a { word-break: break-all; }
+  .year-col .small { line-height: 1.25; }
+
+  /* Sidebar: manage categories (rename/delete) */
+  .cat-manage .row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .35rem 0;
+    border-bottom: 1px dashed rgba(0,0,0,.08);
+  }
+  body.dark-mode .cat-manage .row-item { border-color: rgba(255,255,255,.1); }
+  .cat-manage .row-item:last-child { border-bottom: 0; }
+  .cat-manage .name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .5rem;
+  }
+  .cat-manage .actions {
+    display: inline-flex;
+    gap: .25rem;
+    flex-wrap: nowrap;
+  }
+  .rename-form { display: none; width: 100%; margin-top: .35rem; }
+  .rename-form .input-group > .form-control { height: 30px; padding: .25rem .5rem; }
+  .rename-form .input-group > .btn { height: 30px; padding: .25rem .5rem; }
+
+  /* Highlight terms chips */
+  .term-chip{
+    display:inline-flex; gap:.3rem; align-items:center;
+    background:#eef2ff; border:1px solid #c7d2fe; border-radius:999px;
+    padding:.15rem .5rem; margin:.15rem .25rem .15rem 0; font-size:.85rem;
+  }
+  body.dark-mode .term-chip{ background:#333; border-color:#555 }
+
+  /* Details row styling */
+  .details-row td { background: rgba(0,0,0,.02); }
+  body.dark-mode .details-row td { background: rgba(255,255,255,.03); }
+  .details-table th { width: 220px; }
+
+  /* Dark mode: borders/hover soft */
+  body.dark-mode .review-table th,
+  body.dark-mode .review-table td { border-color: #444 !important; }
+  body.dark-mode .review-table tbody tr:hover { background-color: rgba(255,255,255,0.05) !important; }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .review-table th:nth-child(2) { min-width: 480px; }
+    .review-table th:nth-child(3) { width: 90px; }
+    .review-table th:nth-child(4) { min-width: 360px; }
+  }
+  @media (max-width: 992px) {
+    .review-table th:nth-child(2),
+    .review-table td:nth-child(2),
+    .review-table td:nth-child(4) { max-width: none; }
+    .review-table th:nth-child(3) { width: 84px; }
+    .manage-btn { align-self: center; }
+  }
+</style>
+
+<div class="d-flex justify-content-between align-items-baseline mb-2">
+  <h3>Article Management</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Back to labeling</a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
+  </div>
+</div>
+
+<div class="mb-2 muted">
+  Dataset {{ dataset_id }} &middot;
+  Yes: <b>{{ yes }}</b> &nbsp;
+  No: <b>{{ no }}</b> &nbsp;
+  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
+  Total: <b>{{ total }}</b>
+</div>
+
+<div class="row g-3">
+  <!-- Sidebar: Filters + Manage categories -->
+  <div class="col-12 col-lg-3">
+    <div class="card cat-sidebar">
+      <div class="card-body">
+        <h6 class="card-title mb-2">Filter by status</h6>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <a class="btn btn-sm btn-{{ 'primary' if status=='all' else 'outline-primary' }}"
+             href="{{ url_for('manage', dataset_id=dataset_id, status='all', hide=hide, cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">All</a>
+          <a class="btn btn-sm btn-{{ 'success' if status=='yes' else 'outline-success' }}"
+             href="{{ url_for('manage', dataset_id=dataset_id, status='yes', hide=hide, cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">Related</a>
+          <a class="btn btn-sm btn-{{ 'danger' if status=='no' else 'outline-danger' }}"
+             href="{{ url_for('manage', dataset_id=dataset_id, status='no', hide=hide, cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">Not</a>
+          <a class="btn btn-sm btn-{{ 'secondary' if status=='unlabeled' else 'outline-secondary' }}"
+             href="{{ url_for('manage', dataset_id=dataset_id, status='unlabeled', hide=hide, cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">Unlabeled</a>
+        </div>
+
+        {% if status == 'all' %}
+        <div class="mb-3">
+          {% if hide == 'labeled' %}
+            <a class="btn btn-sm btn-dark w-100"
+               href="{{ url_for('manage', dataset_id=dataset_id, status='all', cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">Show labeled</a>
+          {% else %}
+            <a class="btn btn-sm btn-outline-dark w-100"
+               href="{{ url_for('manage', dataset_id=dataset_id, status='all', hide='labeled', cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">Hide labeled</a>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Highlights only toggle -->
+        <div class="form-check form-switch mb-1">
+          <input class="form-check-input" type="checkbox" id="hlOnlySwitch" {% if hl %}checked{% endif %}>
+          <label class="form-check-label" for="hlOnlySwitch">Highlights only</label>
+        </div>
+        <div class="small text-muted mb-3">
+          Uses your current Highlight keywords{% if is_regex %} (regex mode){% endif %}.
+          {% if terms and terms|length>0 %}
+            <div class="mt-1">
+              {% for t in terms %}<span class="term-chip">{{ t }}</span>{% endfor %}
+            </div>
+          {% else %}
+            <div class="mt-1">No keywords set.</div>
+          {% endif %}
+        </div>
+
+        <h6 class="card-title mb-2">Filter by categories</h6>
+        <form method="get" class="cat-list">
+          <input type="hidden" name="status" value="{{ status }}">
+          {% if hide %}<input type="hidden" name="hide" value="{{ hide }}">{% endif %}
+          {% if hl %}<input type="hidden" name="hl" value="1">{% endif %}
+          {% for c in categories %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="{{ c.id }}" id="cat{{ c.id }}" name="cat" {% if c.id in selected %}checked{% endif %}>
+            <label class="form-check-label" for="cat{{ c.id }}">
+              {{ c.name }} <small class="text-muted">({{ counts_map.get(c.id, 0) }})</small>
+            </label>
+          </div>
+          {% endfor %}
+          <div class="d-flex cat-actions mt-3">
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            <a class="btn btn-outline-secondary btn-sm"
+               href="{{ url_for('manage', dataset_id=dataset_id, status=status, hide=hide, hl=('1' if hl else None)) }}">Clear</a>
+          </div>
+        </form>
+
+        {% if selected %}
+          <div class="small text-muted mt-2">Selected categories: {{ selected|length }}</div>
+        {% endif %}
+
+        <hr class="my-3">
+
+        <h6 class="card-title mb-2">Manage categories</h6>
+        <div class="cat-manage">
+          {% for c in categories %}
+          <div class="row-item" data-cat-id="{{ c.id }}">
+            <div class="flex-grow-1">
+              <div class="name">
+                <span class="fw-semibold cat-name" id="cat-name-{{ c.id }}">{{ c.name }}</span>
+                <small class="text-muted">({{ counts_map.get(c.id, 0) }})</small>
+              </div>
+              <!-- Inline rename form -->
+              <form class="rename-form" method="post" action="{{ url_for('rename_category', category_id=c.id) }}">
+                <div class="input-group input-group-sm">
+                  <input type="text" class="form-control" name="new_name" value="{{ c.name }}" placeholder="New name" required>
+                  <button class="btn btn-primary" type="submit">Save</button>
+                  <button class="btn btn-outline-secondary btn-cancel-rename" type="button">Cancel</button>
+                </div>
+              </form>
+            </div>
+            <div class="actions">
+              <button class="btn btn-sm btn-outline-secondary btn-rename" type="button" data-target="{{ c.id }}">Rename</button>
+              <form method="post" action="{{ url_for('delete_category', category_id=c.id) }}"
+                    onsubmit="return confirm('Delete category “{{ c.name }}”? Articles will simply lose this category.');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+              </form>
+            </div>
+          </div>
+          {% else %}
+          <div class="small muted">No categories yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main: unified review + category management -->
+  <div class="col-12 col-lg-9">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-title mb-2">Articles{% if hl %} — highlights only{% endif %}</h6>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle review-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Title &amp; Categories</th>
+                <th>Year</th>
+                <th>Abstract</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in rows %}
+              <tr>
+                <td class="mono align-top">{{ a.id }}</td>
+
+                <!-- Title + source + categories + inline manager -->
+                <td class="align-top">
+                  <div class="title-bar">
+                    <!-- Title toggles the details row -->
+                    <button class="title-toggle title-text"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#details-{{ a.id }}"
+                            aria-expanded="false"
+                            aria-controls="details-{{ a.id }}">
+                      {{ a.title or '[No title]' }}
+                    </button>
+
+                    <button class="manage-btn btn btn-sm btn-outline-primary" type="button"
+                            data-bs-toggle="collapse" data-bs-target="#manage-{{ a.id }}"
+                            aria-expanded="false" aria-controls="manage-{{ a.id }}">
+                      Manage
+                    </button>
+                  </div>
+
+                  {# Resolve source title #}
+                  {% if a.extra_json %}
+                    {% set src_val = None %}
+                    {% for key, value in a.extra_json.items() %}
+                      {% if src_val is none and (
+                        'source title' in key|lower or
+                        'journal' in key|lower or
+                        'conference' in key|lower or
+                        'booktitle' in key|lower or
+                        'publication title' in key|lower or
+                        'venue' in key|lower
+                      ) %}{% set src_val = value %}{% endif %}
+                    {% endfor %}
+                  {% endif %}
+
+                  <div class="meta-row">
+                    {% if src_val %}<div class="meta-item muted">Source: {{ src_val }}</div>{% endif %}
+                  </div>
+
+                  {% if a.categories %}
+                  <div class="cat-row">
+                    {% for c in a.categories %}
+                      <span class="chip">{{ c.name }}</span>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+
+                  <!-- Inline collapsible category manager -->
+                  <div class="collapse inline-cat-manager" id="manage-{{ a.id }}">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                      <h6 class="mb-0">Categories for this article</h6>
+                      {% if a.categories and a.categories|length > 0 %}
+                        <small class="text-muted">{{ a.categories|length }} assigned</small>
+                      {% endif %}
+                    </div>
+
+                    <!-- Current categories with remove buttons -->
+                    <div class="mb-2">
+                      {% if a.categories and a.categories|length > 0 %}
+                        {% for c in a.categories %}
+                        <span class="category-chip">
+                          {{ c.name }}
+                          <form method="post" action="{{ url_for('remove_category', article_id=a.id, category_id=c.id) }}">
+                            <button class="btn btn-sm btn-outline-danger py-0 px-2" title="Remove">x</button>
+                          </form>
+                        </span>
+                        {% endfor %}
+                      {% else %}
+                        <div class="muted small">No categories assigned.</div>
+                      {% endif %}
+                    </div>
+
+                    <!-- Assign existing -->
+                    <form method="post" action="{{ url_for('categorize', article_id=a.id) }}" class="row g-2">
+                      <div class="col-12 col-md-6">
+                        <label class="form-label">Add to existing</label>
+                        <div class="input-group">
+                          <select class="form-select" name="category_id">
+                            <option value="">— Select —</option>
+                            {% for cat in categories %}
+                              <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                          </select>
+                          <button class="btn btn-outline-primary" name="action" value="assign" type="submit">Add</button>
+                        </div>
+                      </div>
+
+                      <!-- Create new and assign -->
+                      <div class="col-12 col-md-6">
+                        <label class="form-label">Create new &amp; assign</label>
+                        <div class="input-group">
+                          <input class="form-control" type="text" name="new_category" placeholder="e.g., 'Survey Methods'">
+                          <button class="btn btn-primary" name="action" value="create_assign" type="submit">Create</button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </td>
+
+                <!-- Year -->
+                <td class="year-col align-top">
+                  <div>{{ a.year or '' }}</div>
+                </td>
+
+                <!-- Abstract with Show more/less -->
+                <td class="align-top">
+                  {% set abs_text = a.abstract or '[No abstract]' %}
+                  <div class="abstract-box abstract-snippet" id="abs-{{ a.id }}">
+                    <pre class="mb-0">{{ abs_text | hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
+                  </div>
+                  {% if a.abstract and a.abstract|length > 400 %}
+                  <a href="#" class="toggle-abs" data-target="abs-{{ a.id }}">Show more</a>
+                  {% endif %}
+                </td>
+
+                <!-- Relabel actions -->
+                <td class="align-top">
+                  <form method="post"
+                        action="{{ url_for('relabel', article_id=a.id, status=status, hide=hide, cat=request.args.getlist('cat')) }}"
+                        class="d-flex flex-column gap-2">
+                    <input class="form-control form-control-sm" name="notes" placeholder="Notes (optional)" value="{{ a.notes or '' }}">
+                    <div class="btn-group" role="group" aria-label="Relabel">
+                      <button type="submit" name="label" value="yes"
+                              class="btn btn-sm btn-success {{ 'active' if a.label=='yes' else '' }}">Related</button>
+                      <button type="submit" name="label" value="no"
+                              class="btn btn-sm btn-danger {{ 'active' if a.label=='no' else '' }}">Not</button>
+                      <button type="submit" name="label" value="clear"
+                              class="btn btn-sm btn-outline-secondary">Clear</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+
+              <!-- DETAILS ROW (collapses when clicking the title) -->
+              <tr class="collapse details-row" id="details-{{ a.id }}">
+                <td></td>
+                <td colspan="4">
+                  <div class="p-3">
+                    <h6 class="mb-2">Other columns</h6>
+                    {% if a.extra_json %}
+                      <div class="table-responsive">
+                        <table class="table table-sm details-table">
+                          <tbody>
+                            {% for k, v in a.extra_json.items() %}
+                              {% set kl = k|lower %}
+                              {% if 'pmr' not in kl %}
+                                <tr>
+                                  <th class="text-nowrap">{{ k }}</th>
+                                  <td>
+                                    {% if 'doi' in kl %}
+                                      {% set raw = (v|string).strip() %}
+                                      {% set doi_val = raw
+                                         | replace('https://doi.org/','')
+                                         | replace('http://doi.org/','')
+                                         | replace('DOI:','')
+                                         | replace('doi:','')
+                                         | trim %}
+                                      {% if doi_val %}
+                                        <a href="https://doi.org/{{ doi_val }}" target="_blank" rel="noopener">{{ doi_val }}</a>
+                                      {% else %}{{ v }}{% endif %}
+                                    {% else %}
+                                      {{ v }}
+                                    {% endif %}
+                                  </td>
+                                </tr>
+                              {% endif %}
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    {% else %}
+                      <div class="muted">No extra columns for this article.</div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="5" class="muted">No articles for this filter.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Expand/Collapse abstracts
+  document.querySelectorAll(".toggle-abs").forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      const targetId = link.getAttribute("data-target");
+      const box = document.getElementById(targetId);
+      if (!box) return;
+      const expanded = box.classList.toggle("abstract-expanded");
+      link.textContent = expanded ? "Show less" : "Show more";
+    });
+  });
+
+  // Highlights switch: keep current filters when toggling hl=1/0
+  const hlSwitch = document.getElementById("hlOnlySwitch");
+  if (hlSwitch) {
+    hlSwitch.addEventListener("change", () => {
+      const url = new URL(window.location.href);
+      if (hlSwitch.checked) { url.searchParams.set("hl","1"); }
+      else { url.searchParams.delete("hl"); }
+      window.location.href = url.toString();
+    });
+  }
+
+  // Rename category toggles (sidebar)
+  document.querySelectorAll(".btn-rename").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const id = btn.getAttribute("data-target");
+      const row = btn.closest(`[data-cat-id="${id}"]`);
+      if (!row) return;
+      const form = row.querySelector(".rename-form");
+      if (!form) return;
+      form.style.display = (form.style.display === "block") ? "none" : "block";
+    });
+  });
+  document.querySelectorAll(".btn-cancel-rename").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const form = btn.closest(".rename-form");
+      if (form) form.style.display = "none";
+    });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .works-table th:nth-child(1){width:40%}
+  .works-table th:nth-child(2){width:auto}
+  .works-table th:nth-child(3){width:80px}
+  .works-table th:nth-child(4){width:160px}
+  .abstract-cell pre{white-space:pre-wrap;margin:0;font-family:"Georgia",serif;line-height:1.55}
+  .abstract-snippet{max-height:10rem;overflow:hidden;transition:max-height .25s ease}
+  .abstract-expanded{max-height:none!important}
+  .toggle-abs{display:inline-block;margin-top:.25rem}
+  .term-chip{display:inline-flex;gap:.3rem;align-items:center;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:.15rem .5rem;margin:.15rem .25rem .15rem 0;font-size:.85rem}
+  body.dark-mode .term-chip{background:#333;border-color:#555}
+</style>
+
+<div class="d-flex justify-content-between align-items-baseline mb-2">
+  <h3>Highlights</h3>
+  <div>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Back to labeling</a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
+  </div>
+</div>
+
+<div class="mb-2 muted">
+  Dataset {{ dataset_id }} &middot;
+  Yes: <b>{{ yes }}</b> &nbsp;
+  No: <b>{{ no }}</b> &nbsp;
+  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
+  Total: <b>{{ total }}</b>
+</div>
+
+<div class="mb-3">
+  <div class="small muted mb-1">Showing only works whose abstract matches your current Highlight keywords{% if is_regex %} (regex mode){% endif %}.</div>
+  {% if terms and terms|length>0 %}
+    {% for t in terms %}<span class="term-chip">{{ t }}</span>{% endfor %}
+  {% else %}
+    <div class="alert alert-info py-2 mb-0">
+      No highlight keywords set. Add some in the left sidebar (or mobile drawer) and refresh this page.
+    </div>
+  {% endif %}
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle works-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Abstract</th>
+        <th>Year</th>
+        <th>Link DOI</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in rows %}
+      <tr>
+        <td class="fw-semibold">{{ a.title or '[No title]' }}</td>
+        <td class="abstract-cell">
+          {% set abs_text = a.abstract or '[No abstract]' %}
+          <div class="abstract-snippet" id="abs-{{ a.id }}">
+            <pre>{{ abs_text | hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
+          </div>
+          {% if a.abstract and a.abstract|length > 500 %}
+            <a href="#" class="toggle-abs" data-target="abs-{{ a.id }}">Show more</a>
+          {% endif %}
+        </td>
+        <td>{{ a.year or '' }}</td>
+        <td>
+          {% set doi_val = None %}
+          {% if a.extra_json %}
+            {% for key, value in a.extra_json.items() %}
+              {% if doi_val is none and 'doi' in key|lower %}
+                {% set raw = (value|string).strip() %}
+                {% set doi_val = raw
+                  | replace('https://doi.org/','')
+                  | replace('http://doi.org/','')
+                  | replace('DOI:','')
+                  | replace('doi:','')
+                  | trim %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if doi_val %}
+            <a href="https://doi.org/{{ doi_val }}" target="_blank" rel="noopener">https://doi.org/{{ doi_val }}</a>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No matches for the current keywords.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".toggle-abs").forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      var targetId = link.getAttribute("data-target");
+      var box = document.getElementById(targetId);
+      if (!box) return;
+      var expanded = box.classList.toggle("abstract-expanded");
+      link.textContent = expanded ? "Show less" : "Show more";
+    });
+  });
+});
+</script>
+{% endblock %}

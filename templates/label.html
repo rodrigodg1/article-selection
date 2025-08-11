@@ -2,12 +2,22 @@
 {% block content %}
 <style>
   /* Centered actions below the abstract */
-  .label-actions { margin-top: 1rem; }
-  .label-actions .btn { min-width: 140px; }
-  .label-actions .actions-group { gap: .5rem; }
+  .label-actions {
+    margin-top: 1rem;
+  }
+
+  .label-actions .btn {
+    min-width: 140px;
+  }
+
+  .label-actions .actions-group {
+    gap: .5rem;
+  }
 
   /* Notes input centered with a comfortable width */
-  .label-actions .notes-input { width: clamp(260px, 60%, 520px); }
+  .label-actions .notes-input {
+    width: clamp(260px, 60%, 520px);
+  }
 
   /* PMR cards */
   .pmr-grid {
@@ -16,9 +26,22 @@
     gap: .75rem;
     margin-bottom: .5rem;
   }
-  .pmr-card { border: 1px solid #e5e7eb; border-radius: .5rem; padding: .75rem; }
-  .pmr-text { margin: 0; }
-  @media (max-width: 992px) { .pmr-grid { grid-template-columns: 1fr; } }
+
+  .pmr-card {
+    border: 1px solid #e5e7eb;
+    border-radius: .5rem;
+    padding: .75rem;
+  }
+
+  .pmr-text {
+    margin: 0;
+  }
+
+  @media (max-width: 992px) {
+    .pmr-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 
   /* Abstract box with centered title */
   .abstract-box {
@@ -26,19 +49,22 @@
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 1.5rem;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
     text-align: center;
   }
+
   body.dark-mode .abstract-box {
     background: #1b1b1b;
     border: 1px solid #333;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   }
+
   .abstract-title {
     font-weight: bold;
     font-size: 1.4rem;
     margin-bottom: 1rem;
   }
+
   .abstract-box pre {
     white-space: pre-wrap;
     font-family: "Georgia", serif;
@@ -56,7 +82,11 @@
     border: 1px solid #e5e7eb;
     border-radius: 8px;
   }
-  body.dark-mode .category-box { border-color: #333; }
+
+  body.dark-mode .category-box {
+    border-color: #333;
+  }
+
   .category-chip {
     display: inline-flex;
     align-items: center;
@@ -68,18 +98,75 @@
     font-size: .86rem;
     margin: .2rem .3rem .2rem 0;
   }
+
   body.dark-mode .category-chip {
-    background: #333; border-color: #555;
+    background: #333;
+    border-color: #555;
   }
-  .category-chip form { display: inline; }
-  .category-controls .form-label { margin-bottom: .25rem; }
+
+  .category-chip form {
+    display: inline;
+  }
+
+  .category-controls .form-label {
+    margin-bottom: .25rem;
+  }
+
+
+  /* Notes input appearance */
+  .notes-input {
+    height: 70px;
+    /* default Bootstrap small is ~31px */
+    font-size: 1rem;
+    /* slightly bigger text */
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 0.9rem;
+    padding: 0.35rem 0.6rem;
+    transition: all 0.2s ease-in-out;
+    background-color: #fdfdfd;
+  }
+
+  /* Hover state */
+  .notes-input:hover {
+    background-color: #fafafa;
+    border-color: #bbb;
+  }
+
+  /* Focus state */
+  .notes-input:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 0.15rem rgba(74, 144, 226, 0.25);
+    background-color: #fff;
+  }
+
+  /* Dark mode */
+  body.dark-mode .notes-input {
+    background-color: #2a2a2a;
+    border-color: #555;
+    color: #fff;
+  }
+
+  body.dark-mode .notes-input:hover {
+    background-color: #333;
+    border-color: #666;
+  }
+
+  body.dark-mode .notes-input:focus {
+    border-color: #82aaff;
+    box-shadow: 0 0 0 0.15rem rgba(130, 170, 255, 0.25);
+    background-color: #1f1f1f;
+  }
 </style>
 
 <div class="d-flex justify-content-between align-items-baseline">
   <h3>Label articles</h3>
   <div>
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('upload') }}">Upload new</a>
-    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('review', dataset_id=dataset_id) }}">Review</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('manage', dataset_id=dataset_id) }}">Manage</a>
+
     <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
   </div>
 </div>
@@ -99,8 +186,9 @@
     <div><span class="muted">Remaining: {{ unlabeled }}</span></div>
   </div>
   <div class="progress" role="progressbar" aria-valuenow="{{ pct_done }}" aria-valuemin="0" aria-valuemax="100">
-    <div class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
-         style="width: {{ pct_done|default(0)|int }}%;">
+    <div
+      class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
+      style="width: {{ pct_done|default(0)|int }}%;">
       {{ pct_done|default(0)|int }}%
     </div>
   </div>
@@ -122,20 +210,15 @@
     <div class="mb-1"><strong>Source title:</strong> {{ source_title }}</div>
     {% endif %}
 
+    {% if article.year %}
+    <div class="mb-1"><strong>Year:</strong> {{ article.year }}</div>
+    {% endif %}
+
+
     {% if cited_by is not none %}
     <div class="mb-2"><strong>Cited by:</strong> {{ cited_by }}</div>
     {% endif %}
 
-    {% if pmr and (pmr.problem or pmr.method or pmr.results) %}
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <span class="badge text-bg-light border">PMR source: {{ pmr_source }}</span>
-    </div>
-    <div class="pmr-grid">
-      <div class="pmr-card"><h6>Problem</h6><p class="pmr-text">{{ pmr.problem or '—' }}</p></div>
-      <div class="pmr-card"><h6>Method</h6><p class="pmr-text">{{ pmr.method or '—' }}</p></div>
-      <div class="pmr-card"><h6>Results</h6><p class="pmr-text">{{ pmr.results or '—' }}</p></div>
-    </div>
-    {% endif %}
 
     <div class="abstract-box">
       <div class="abstract-title">{{ article.title or '[No title]' }}</div>
@@ -147,23 +230,23 @@
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
         <h6 class="mb-0">Categorias</h6>
         {% if article.categories and article.categories|length > 0 %}
-          <small class="text-muted">{{ article.categories|length }} atribuída(s)</small>
+        <small class="text-muted">{{ article.categories|length }} atribuída(s)</small>
         {% endif %}
       </div>
 
       {# Chips das categorias atuais #}
       <div class="mb-2">
         {% if article.categories and article.categories|length > 0 %}
-          {% for c in article.categories %}
-            <span class="category-chip">
-              {{ c.name }}
-              <form method="post" action="{{ url_for('remove_category', article_id=article.id, category_id=c.id) }}">
-                <button class="btn btn-sm btn-outline-danger py-0 px-2">x</button>
-              </form>
-            </span>
-          {% endfor %}
+        {% for c in article.categories %}
+        <span class="category-chip">
+          {{ c.name }}
+          <form method="post" action="{{ url_for('remove_category', article_id=article.id, category_id=c.id) }}">
+            <button class="btn btn-sm btn-outline-danger py-0 px-2">x</button>
+          </form>
+        </span>
+        {% endfor %}
         {% else %}
-          <div class="muted small">Nenhuma categoria atribuída.</div>
+        <div class="muted small">Nenhuma categoria atribuída.</div>
         {% endif %}
       </div>
 
@@ -176,7 +259,7 @@
               <select class="form-select" name="category_id">
                 <option value="">— Selecione —</option>
                 {% for cat in categories %}
-                  <option value="{{ cat.id }}">{{ cat.name }}</option>
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
                 {% endfor %}
               </select>
               <button class="btn btn-outline-primary" name="action" value="assign" type="submit">Adicionar</button>
@@ -186,22 +269,24 @@
             <label class="form-label">Criar nova e atribuir</label>
             <div class="input-group">
               <input class="form-control" type="text" name="new_category" placeholder="Ex.: 'Survey Methods'">
-              <button class="btn btn-primary" name="action" value="create_assign" type="submit">Criar & atribuir</button>
+              <button class="btn btn-primary" name="action" value="create_assign" type="submit">Criar &
+                atribuir</button>
             </div>
           </div>
         </form>
-        <small class="muted d-block mt-1">Dica: você pode criar categorias temáticas (ex.: “LLM in ESG”, “Privacy in 6G”, “Blockchain scalability”).</small>
+        <small class="muted d-block mt-1">Dica: você pode criar categorias temáticas (ex.: “LLM in ESG”, “Privacy in
+          6G”, “Blockchain scalability”).</small>
       </div>
     </div>
     {# === FIM CATEGORIES === #}
 
     <div class="label-actions text-center">
       <form method="post" action="{{ url_for('label_submit', article_id=article.id) }}"
-            class="d-flex flex-column align-items-center gap-3">
+        class="d-flex flex-column align-items-center gap-3">
         <div class="d-flex flex-wrap justify-content-center actions-group">
-          <button name="decision" value="no"   class="btn btn-outline-danger btn-lg">Not related</button>
+          <button name="decision" value="no" class="btn btn-outline-danger btn-lg">Not related</button>
           <button name="decision" value="skip" class="btn btn-outline-secondary btn-lg">Skip</button>
-          <button name="decision" value="yes"  class="btn btn-success btn-lg">Related</button>
+          <button name="decision" value="yes" class="btn btn-success btn-lg">Related</button>
         </div>
         <input class="form-control form-control-sm notes-input" name="notes" placeholder="Notes (optional)">
       </form>
@@ -213,7 +298,10 @@
       <table class="table table-sm mt-2">
         {% for k,v in article.extra_json.items() %}
         {% if k != 'pmr' %}
-        <tr><th style="width: 200px;">{{ k }}</th><td>{{ v }}</td></tr>
+        <tr>
+          <th style="width: 200px;">{{ k }}</th>
+          <td>{{ v }}</td>
+        </tr>
         {% endif %}
         {% endfor %}
       </table>

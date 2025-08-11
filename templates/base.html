@@ -37,10 +37,6 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
 
-        body.dark-mode .abstract-box {
-            background: #1b1b1b;
-        }
-
         .kw {
             font-weight: bold;
             background: #ffec99;
@@ -206,30 +202,41 @@
 </head>
 
 <body>
-
-
     <nav class="navbar navbar-expand-lg border-bottom fixed-top bg-light">
         <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('home') }}">LitReview</a>
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+
             <button id="darkModeToggle" class="btn btn-outline-secondary ms-2">🌙</button>
 
             <div class="collapse navbar-collapse" id="topNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
                     {% if active_dataset_id %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('label_next', dataset_id=active_dataset_id) }}">Label</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('review', dataset_id=active_dataset_id) }}">Review</a>
+                        <a class="nav-link" href="{{ url_for('manage', dataset_id=active_dataset_id) }}">Manage</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link"
-                            href="{{ url_for('categories', dataset_id=active_dataset_id) }}">Categories</a>
+                            href="{{ url_for('highlights', dataset_id=active_dataset_id) }}">Highlights</a>
                     </li>
                     {% endif %}
+
+
+
+
+
+
+
+
+
+
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('upload') }}">Datasets</a>
                     </li>
@@ -245,6 +252,7 @@
                 </div>
                 {% endif %}
 
+                <!-- Open sidebar on small screens -->
                 <button class="btn btn-outline-primary d-lg-none" type="button" data-bs-toggle="offcanvas"
                     data-bs-target="#keywordsDrawer">
                     Keywords
@@ -260,6 +268,7 @@
                     <div class="card-body">
                         <h6 class="card-title mb-1">Highlight keywords</h6>
                         <div class="text-muted small mb-2">Words to emphasize in abstracts (per dataset).</div>
+
                         <div class="mb-2">
                             {% if highlight_terms %}
                             {% for term in highlight_terms %}
@@ -275,6 +284,7 @@
                             <div class="text-muted small">No keywords yet.</div>
                             {% endif %}
                         </div>
+
                         <form method="post" action="{{ url_for('set_highlight') }}" class="mb-2">
                             <div class="mb-2">
                                 <textarea class="form-control" name="keywords" rows="2"
@@ -287,9 +297,11 @@
                             </div>
                             <button class="btn btn-sm btn-primary" type="submit">Add / Update</button>
                         </form>
+
                         <form method="post" action="{{ url_for('clear_highlight') }}">
                             <button class="btn btn-sm btn-outline-danger" type="submit">Clear all</button>
                         </form>
+
                         <div class="small text-muted mt-2">
                             Tip: matching is case-insensitive; phrases are supported.
                         </div>
@@ -311,6 +323,7 @@
                 </div>
                 {% endif %}
                 {% endwith %}
+
                 {% block content %}{% endblock %}
             </main>
         </div>
@@ -338,6 +351,7 @@
                 <div class="text-muted small">No keywords yet.</div>
                 {% endif %}
             </div>
+
             <form method="post" action="{{ url_for('set_highlight') }}" class="mb-2">
                 <div class="mb-2">
                     <textarea class="form-control" name="keywords" rows="3"
@@ -350,9 +364,11 @@
                 </div>
                 <button class="btn btn-primary" type="submit">Add / Update</button>
             </form>
+
             <form action="{{ url_for('clear_highlight') }}" method="post" class="mt-2">
                 <button type="submit" class="btn btn-outline-danger btn-sm">Clear all</button>
             </form>
+
             <div class="small text-muted mt-2">
                 Matching is case-insensitive. If “Use regular expressions” is on, each entry is treated as a Python
                 regex.
@@ -365,9 +381,7 @@
     <script>
         const toggleBtn = document.getElementById('darkModeToggle');
         const prefersDark = localStorage.getItem('darkMode') === 'true';
-        if (prefersDark) {
-            document.body.classList.add('dark-mode');
-        }
+        if (prefersDark) document.body.classList.add('dark-mode');
         toggleBtn.addEventListener('click', () => {
             document.body.classList.toggle('dark-mode');
             localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
