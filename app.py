@@ -4,7 +4,11 @@ import re
 import html
 import unicodedata
 import datetime as dt
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict
+
+import colorsys
+import hashlib
+
 
 from flask import (
     Flask,
@@ -144,7 +148,7 @@ def counts(dataset_id: int):
 # ----------------------------
 # DOI / Source / Cited-by extractors
 # ----------------------------
-def _get_by_keys(extras: dict | None, keys_like: list[str]) -> Optional[str]:
+def _get_by_keys(extras: Optional[Dict], keys_like: List[str]) -> Optional[str]:
     if not extras:
         return None
     for k, v in extras.items():
@@ -155,7 +159,7 @@ def _get_by_keys(extras: dict | None, keys_like: list[str]) -> Optional[str]:
     return None
 
 
-def extract_doi(extras: Optional[dict]) -> Optional[str]:
+def extract_doi(extras: Optional[Dict]) -> Optional[str]:
     if not extras:
         return None
     for k, v in extras.items():
@@ -169,7 +173,7 @@ def extract_doi(extras: Optional[dict]) -> Optional[str]:
     return None
 
 
-def extract_source_title(extras: dict | None) -> Optional[str]:
+def extract_source_title(extras: Optional[Dict]) -> Optional[str]:
     return _get_by_keys(
         extras,
         keys_like=[
@@ -184,7 +188,7 @@ def extract_source_title(extras: dict | None) -> Optional[str]:
     )
 
 
-def extract_cited_by(extras: dict | None) -> Optional[int]:
+def extract_cited_by(extras: Optional[Dict]) -> Optional[int]:
     raw = _get_by_keys(
         extras, keys_like=["cited by", "citations", "times cited", "times-cited"]
     )
@@ -201,7 +205,7 @@ def _normalize(s: str) -> str:
     return unicodedata.normalize("NFKC", s or "").strip()
 
 
-def _parse_keywords(q: str) -> list[str]:
+def _parse_keywords(q: str) -> List[str]:
     if not q:
         return []
     raw = [t.strip() for t in re.split(r"[,\n;]+", q) if t.strip()]
@@ -214,14 +218,14 @@ def _parse_keywords(q: str) -> list[str]:
     return out
 
 
-def _terms_for_dataset(dsid: int | None) -> list[str]:
+def _terms_for_dataset(dsid: Optional[int]) -> List[str]:
     if not dsid:
         return []
     dct = session.get("highlight_terms", {})
     return dct.get(str(dsid), [])
 
 
-def _store_terms_for_dataset(dsid: int | None, terms: list[str]) -> None:
+def _store_terms_for_dataset(dsid: Optional[int], terms: List[str]) -> None:
     if not dsid:
         return
     dct = session.get("highlight_terms", {})
@@ -229,20 +233,19 @@ def _store_terms_for_dataset(dsid: int | None, terms: list[str]) -> None:
     session["highlight_terms"] = dct
 
 
-def _regex_flag_for_dataset(dsid: int | None) -> bool:
+def _regex_flag_for_dataset(dsid: Optional[int]) -> bool:
     if not dsid:
         return False
     dct = session.get("highlight_regex_flags", {})
     return bool(dct.get(str(dsid), False))
 
 
-def _store_regex_flag_for_dataset(dsid: int | None, is_regex: bool) -> None:
+def _store_regex_flag_for_dataset(dsid: Optional[int], is_regex: bool) -> None:
     if not dsid:
         return
     dct = session.get("highlight_regex_flags", {})
     dct[str(dsid)] = bool(is_regex)
     session["highlight_regex_flags"] = dct
-
 
 
 # === Server-side matcher mirroring the highlighter ===
@@ -265,7 +268,8 @@ def _build_pattern_for_search(p: str, is_regex: bool):
     except re.error:
         return None
 
-def _abstract_matches_terms(text: str | None, terms: list[str], is_regex: bool) -> bool:
+
+def _abstract_matches_terms(text: Optional[str], terms: List[str], is_regex: bool) -> bool:
     if not text or not terms:
         return False
     patterns = [rx for t in terms if (rx := _build_pattern_for_search(t, is_regex))]
@@ -274,17 +278,12 @@ def _abstract_matches_terms(text: str | None, terms: list[str], is_regex: bool) 
     return any(rx.search(text) for rx in patterns)
 
 
-
-
-
 # === Highlights page: only works whose abstract matches current highlight terms ===
 @app.route("/highlights/<int:dataset_id>")
 def highlights(dataset_id):
-    # pull current dataset’s highlight settings from session
     terms = _terms_for_dataset(dataset_id)
     is_regex = _regex_flag_for_dataset(dataset_id)
 
-    # if no terms, show empty list with a friendly hint
     q = Article.query.filter_by(dataset_id=dataset_id).order_by(Article.id.asc()).all()
     rows = [a for a in q if _abstract_matches_terms(a.abstract, terms, is_regex)]
 
@@ -328,8 +327,47 @@ def clear_highlight():
     )
 
 
+
+
+
+
+
+def _pastel_color_for_term(term: str) -> str:
+    """
+    Stable, readable background color for a term.
+    We hash the term to pick a hue, then use lightness/saturation tuned for readability.
+    Returns a HEX like '#aabbcc'.
+    """
+    term = (term or "").strip().lower()
+    if not term:
+        return "#fffb91"  # fallback yellow-ish
+    # stable hue from hash (0..359)
+    h = int(hashlib.md5(term.encode("utf-8")).hexdigest(), 16) % 360
+    # HLS in [0..1]: fairly light pastel, moderate saturation
+    # (HLS order in colorsys is: h, l, s)
+    r, g, b = colorsys.hls_to_rgb(h/360.0, 0.82, 0.55)
+    return "#{:02x}{:02x}{:02x}".format(int(r*255), int(g*255), int(b*255))
+
+def _text_color_for_bg(hex_color: str) -> str:
+    """
+    Pick black/white text for contrast based on perceived luminance.
+    """
+    c = hex_color.lstrip("#")
+    if len(c) != 6:
+        return "#000000"
+    r = int(c[0:2], 16)
+    g = int(c[2:4], 16)
+    b = int(c[4:6], 16)
+    # relative luminance
+    luminance = 0.2126*r + 0.7152*g + 0.0722*b
+    return "#000000" if luminance > 160 else "#ffffff"
+
+
+
+
+
 @app.template_filter("hilite")
-def jinja_hilite(text: str, terms: list[str] | None = None, *args, **kwargs) -> str:
+def jinja_hilite(text: str, terms: Optional[List[str]] = None, *args, **kwargs) -> str:
     if not text:
         return ""
     safe = html.escape(text)
@@ -359,10 +397,20 @@ def jinja_hilite(text: str, terms: list[str] | None = None, *args, **kwargs) -> 
         except re.error:
             return None
 
-    patterns = [rx for t in terms if (rx := build_pattern(t))]
-    if not patterns:
+    # Build (regex, term, color, textColor) tuples so each term gets its own color
+    compiled: List[tuple] = []
+    for t in terms:
+        rx = build_pattern(t)
+        if not rx:
+            continue
+        bg = _pastel_color_for_term(t)
+        fg = _text_color_for_bg(bg)
+        compiled.append((rx, t, bg, fg))
+
+    if not compiled:
         return safe
 
+    # Avoid re-highlighting inside existing <mark> spans
     segments = re.split(r"(<mark\b[^>]*>|</mark>)", safe, flags=re.IGNORECASE)
     out, in_mark = [], False
     for seg in segments:
@@ -376,15 +424,23 @@ def jinja_hilite(text: str, terms: list[str] | None = None, *args, **kwargs) -> 
             in_mark = False
             out.append(seg)
             continue
+
         if in_mark:
+            # leave previously highlighted chunks alone
             out.append(seg)
-        else:
-            text_seg = seg
-            for rx in patterns:
-                text_seg = rx.sub(
-                    lambda m: f'<mark class="kw">{m.group(0)}</mark>', text_seg
-                )
-            out.append(text_seg)
+            continue
+
+        # Apply each term's regex separately so each match gets that term’s color
+        text_seg = seg
+        for rx, term, bg, fg in compiled:
+            style = f'background-color:{bg}; color:{fg}; padding:0 .15em; border-radius:.2em;'
+            # data-term helps when you want a legend or hover tooltips
+            repl = lambda m, s=style, t=html.escape(term): (
+                f'<mark class="kw" style="{s}" title="{t}" data-term="{t}">{m.group(0)}</mark>'
+            )
+            text_seg = rx.sub(repl, text_seg)
+        out.append(text_seg)
+
     return "".join(out)
 
 
@@ -604,10 +660,6 @@ def label_submit(article_id):
 # ----------------------------
 # Unified management page (Review + Categories)
 # ----------------------------
-
-
-
-
 @app.route("/manage/<int:dataset_id>")
 def manage(dataset_id):
     status = request.args.get("status", "all")         # all|yes|no|unlabeled
@@ -667,18 +719,8 @@ def manage(dataset_id):
         selected=selected,
         counts_map=counts_map,
         total=total, yes=yes, no=no, unlabeled=unlabeled,
-        hl=hl, terms=terms, is_regex=is_regex,   # <— pass to template
+        hl=hl, terms=terms, is_regex=is_regex,
     )
-
-
-
-
-
-
-
-
-
-
 
 
 @app.route("/relabel/<int:article_id>", methods=["POST"])
