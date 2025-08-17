@@ -6,6 +6,8 @@ import unicodedata
 import datetime as dt
 from typing import Optional, Tuple, List, Dict
 
+from zoneinfo import ZoneInfo
+
 import colorsys
 import hashlib
 
@@ -43,7 +45,10 @@ class Dataset(db.Model):
     __tablename__ = "datasets"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    created_at = db.Column(db.DateTime, default=dt.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: dt.datetime.now(dt.timezone.utc))
+    
+    search_query = db.Column(db.Text, nullable=True)
+    
     articles = db.relationship(
         "Article", backref="dataset", lazy=True, cascade="all, delete-orphan"
     )
@@ -278,6 +283,93 @@ def _abstract_matches_terms(text: Optional[str], terms: List[str], is_regex: boo
     return any(rx.search(text) for rx in patterns)
 
 
+
+
+
+
+
+# --- DOI normalizer (strip prefixes, lowercase, trim) ---
+def _normalize_doi(s: Optional[str]) -> Optional[str]:
+    if not s:
+        return None
+    s = str(s).strip()
+    # common prefixes and noise
+    s = s.replace("https://doi.org/", "").replace("http://doi.org/", "")
+    s = s.replace("doi:", "").replace("DOI:", "").strip()
+    return s.lower() or None
+
+
+@app.route("/search/doi", methods=["GET"])
+def search_doi():
+    """Find a single article in the active dataset by DOI and show a manage-like view."""
+    dsid = get_active_dataset_id()
+    if not dsid:
+        flash("Select or open a dataset first.", "warning")
+        return redirect(url_for("upload"))
+
+    query_doi = _normalize_doi(request.args.get("doi", ""))
+
+    found = None
+    if query_doi:
+        # Simple scan within the active dataset (robust to various extra_json keys)
+        rows = Article.query.filter_by(dataset_id=dsid).order_by(Article.id.asc()).all()
+        for a in rows:
+            doi_val = extract_doi(a.extra_json)
+            if _normalize_doi(doi_val) == query_doi:
+                found = a
+                break
+
+    total, yes, no, unlabeled = counts(dsid)
+
+    return render_template(
+        "search_doi.html",
+        dataset_id=dsid,
+        article=found,
+        query_doi=request.args.get("doi", "").strip(),
+        total=total, yes=yes, no=no, unlabeled=unlabeled,
+        categories=Category.query.order_by(Category.name.asc()).all(),
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@app.template_filter("local_dt")
+def local_dt(value, fmt="%Y-%m-%d %H:%M"):
+    """
+    Render a datetime in the local timezone specified by USER_TIMEZONE
+    (default America/Los_Angeles). Assumes stored UTC if tzinfo is None.
+    """
+    if not value:
+        return ""
+    tzname = os.environ.get("USER_TIMEZONE", "America/Los_Angeles")
+    tz = ZoneInfo(tzname)
+    if value.tzinfo is None:
+        # treat naive as UTC for backward compatibility
+        value = value.replace(tzinfo=dt.timezone.utc)
+    return value.astimezone(tz).strftime(fmt)
+
+
+
+
+
+
+
+
+
+
 # === Highlights page: only works whose abstract matches current highlight terms ===
 @app.route("/highlights/<int:dataset_id>")
 def highlights(dataset_id):
@@ -500,9 +592,13 @@ def upload():
             )
             return redirect(request.url)
 
+        # NEW: read search string from the form
+        search_query = (request.form.get("search_query") or "").strip()
+
         ds = Dataset(
             name=request.form.get("name")
-            or f"Dataset {dt.datetime.utcnow():%Y-%m-%d %H:%M}"
+            or f"Dataset {dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%M} UTC",
+            search_query=search_query,  # NEW
         )
         db.session.add(ds)
         db.session.flush()
@@ -867,23 +963,51 @@ def works(dataset_id):
 # ----------------------------
 @app.route("/export/<int:dataset_id>")
 def export(dataset_id):
+    # Fetch dataset to access its stored search query
+    ds = Dataset.query.get_or_404(dataset_id)
+
     q = Article.query.filter_by(dataset_id=dataset_id).order_by(Article.id.asc())
     data = []
     for a in q:
+        # Put dataset-level metadata first so it appears as leftmost columns
         row = {
+            "dataset_id": ds.id,
+            "dataset_name": ds.name,
+            "dataset_search_query": ds.search_query or "",
+        }
+        # Article-level fields
+        row.update({
             "id": a.id,
             "title": a.title,
             "year": a.year,
             "abstract": a.abstract,
             "label": a.label,
             "notes": a.notes,
-        }
+        })
+        # Extras (flattened)
         if a.extra_json:
             row.update({f"extra::{k}": v for k, v in a.extra_json.items()})
+        # Categories
         row["categories"] = (
             "; ".join(sorted([c.name for c in a.categories])) if a.categories else ""
         )
         data.append(row)
+
+    # Even if there are no articles, export a header-only CSV with dataset info
+    if not data:
+        data = [{
+            "dataset_id": ds.id,
+            "dataset_name": ds.name,
+            "dataset_search_query": ds.search_query or "",
+            "id": "",
+            "title": "",
+            "year": "",
+            "abstract": "",
+            "label": "",
+            "notes": "",
+            "categories": "",
+        }]
+
     df = pd.DataFrame(data)
     buf = io.StringIO()
     df.to_csv(buf, index=False)
@@ -894,6 +1018,19 @@ def export(dataset_id):
         as_attachment=True,
         download_name=f"dataset_{dataset_id}_labeled.csv",
     )
+
+
+
+
+@app.post("/dataset/<int:dataset_id>/update_search")
+def update_search_string(dataset_id):
+    ds = Dataset.query.get_or_404(dataset_id)
+    new_query = (request.form.get("search_query") or "").strip()
+    ds.search_query = new_query
+    db.session.commit()
+    flash("Search string updated.", "success")
+    return redirect(url_for("upload"))
+
 
 
 # ----------------------------

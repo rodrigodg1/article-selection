@@ -14,7 +14,19 @@
       <button class="btn btn-primary w-100" type="submit">Upload</button>
     </div>
   </div>
+
+  <!-- NEW: search string textarea -->
+  <div class="row g-2 mt-2">
+    <div class="col-12">
+      <textarea class="form-control" name="search_query" rows="2"
+        placeholder="Search string used to build this dataset (e.g., database query, keywords, boolean expression)"></textarea>
+      <div class="form-text">Saved with the dataset for provenance and reproducibility.</div>
+    </div>
+  </div>
 </form>
+
+
+
 
 <h5>Existing datasets</h5>
 <table class="table table-sm align-middle">
@@ -23,6 +35,7 @@
       <th style="width: 80px;">ID</th>
       <th>Name</th>
       <th style="width: 180px;">Created</th>
+      <th>Search string</th>
       <th style="width: 240px;">Actions</th>
     </tr>
   </thead>
@@ -31,7 +44,15 @@
     <tr>
       <td class="mono">{{ ds.id }}</td>
       <td>{{ ds.name }}</td>
-      <td class="text-muted">{{ ds.created_at.strftime('%Y-%m-%d %H:%M') if ds.created_at else '' }}</td>
+      <td class="text-muted">{{ ds.created_at|local_dt }}</td>
+      <td>
+        <!-- Form to update search string -->
+        <form method="post" action="{{ url_for('update_search_string', dataset_id=ds.id) }}" class="d-flex">
+              <textarea name="search_query" class="form-control form-control-sm me-1 flex-grow-1" rows="3"
+                 placeholder="Enter search string">{{ ds.search_query or '' }}</textarea>
+          <button class="btn btn-sm btn-outline-primary" type="submit">Update</button>
+        </form>
+      </td>
       <td>
         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('label_next', dataset_id=ds.id) }}">Open</a>
         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manage', dataset_id=ds.id) }}">Review</a>
@@ -43,9 +64,30 @@
     </tr>
     {% else %}
     <tr>
-      <td colspan="4" class="text-muted">No datasets yet.</td>
+      <td colspan="5" class="text-muted">No datasets yet.</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {% endblock %}

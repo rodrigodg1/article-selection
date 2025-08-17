@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .result-wrap .abstract-box { font-size: 1rem; line-height: 1.6; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h3 class="mb-0">Search by DOI</h3>
+  <div class="d-flex align-items-center gap-2">
+    {% if dataset_id %}
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('manage', dataset_id=dataset_id) }}">Manage</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Label</a>
+    {% endif %}
+  </div>
+</div>
+
+<form class="row g-2 mb-3" action="{{ url_for('search_doi') }}" method="get">
+  <div class="col-sm-8 col-md-6 col-lg-5">
+    <input class="form-control" type="text" name="doi" placeholder="Paste DOI or DOI URL"
+           value="{{ query_doi or '' }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-primary" type="submit">Search</button>
+  </div>
+</form>
+
+<div class="mb-2 muted">
+  Dataset {{ dataset_id }} &middot;
+  Yes: <b>{{ yes }}</b> &nbsp;
+  No: <b>{{ no }}</b> &nbsp;
+  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
+  Total: <b>{{ total }}</b>
+</div>
+
+<div class="result-wrap">
+  {% if article %}
+  <div class="card">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <h5 class="mb-1">{{ article.title or '[No title]' }}</h5>
+        <div>
+          <form method="post"
+                action="{{ url_for('relabel', article_id=article.id) }}"
+                class="d-flex gap-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Relabel">
+              <button type="submit" name="label" value="yes" class="btn btn-success {{ 'active' if article.label=='yes' else '' }}">Related</button>
+              <button type="submit" name="label" value="no" class="btn btn-danger {{ 'active' if article.label=='no' else '' }}">Not</button>
+              <button type="submit" name="label" value="clear" class="btn btn-outline-secondary">Clear</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="text-muted mb-2">
+        {% if article.year %}Year: {{ article.year }} · {% endif %}
+        ID: <span class="mono">{{ article.id }}</span>
+      </div>
+
+      {% set abs_text = article.abstract or '[No abstract]' %}
+      <div class="abstract-box mb-3">
+        <pre class="mb-0">{{ abs_text | hilite(highlight_terms, highlight_is_regex) | safe }}</pre>
+      </div>
+
+      {% if article.categories %}
+      <div class="mb-2">
+        {% for c in article.categories %}<span class="chip">{{ c.name }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      <details class="mt-3">
+        <summary class="mb-2"><strong>Other columns</strong></summary>
+        {% if article.extra_json %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <tbody>
+            {% for k, v in article.extra_json.items() %}
+              {% set kl = k|lower %}
+              {% if 'pmr' not in kl %}
+              <tr>
+                <th class="text-nowrap">{{ k }}</th>
+                <td>
+                  {% if 'doi' in kl %}
+                    {% set raw = (v|string).strip() %}
+                    {% set doi_val = raw
+                      | replace('https://doi.org/','')
+                      | replace('http://doi.org/','')
+                      | replace('DOI:','')
+                      | replace('doi:','')
+                      | trim %}
+                    {% if doi_val %}
+                      <a href="https://doi.org/{{ doi_val }}" target="_blank" rel="noopener">{{ doi_val }}</a>
+                    {% else %}
+                      {{ v }}
+                    {% endif %}
+                  {% else %}
+                    {{ v }}
+                  {% endif %}
+                </td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="muted">No extra columns.</div>
+        {% endif %}
+      </details>
+
+      <!-- Inline category ops (optional) -->
+      <div class="mt-3">
+        <form method="post" action="{{ url_for('categorize', article_id=article.id) }}" class="row g-2">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Add to existing</label>
+            <div class="input-group">
+              <select class="form-select" name="category_id">
+                <option value="">— Select —</option>
+                {% for cat in categories %}
+                  <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-outline-primary" name="action" value="assign" type="submit">Add</button>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Create new &amp; assign</label>
+            <div class="input-group">
+              <input class="form-control" type="text" name="new_category" placeholder="e.g., 'Survey Methods'">
+              <button class="btn btn-primary" name="action" value="create_assign" type="submit">Create</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+  {% elif query_doi %}
+  <div class="alert alert-warning">
+    No article with DOI “<span class="mono">{{ query_doi }}</span>” was found in this dataset.
+  </div>
+  {% else %}
+  <div class="alert alert-secondary">Enter a DOI to search in the active dataset.</div>
+  {% endif %}
+</div>
+{% endblock %}

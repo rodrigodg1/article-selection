@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,12 +9,16 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
   <style>
-    :root { --max-abs-ch: 98ch; }
+    :root {
+      --max-abs-ch: 98ch;
+    }
 
-    body { padding-top: 4.25rem; }
+    body {
+      padding-top: 4.25rem;
+    }
 
     /* Abstract box */
-    .abstract-box pre{
+    .abstract-box pre {
       white-space: pre-wrap;
       font-family: "Georgia", serif;
       margin: 0;
@@ -23,28 +28,39 @@
       margin-left: auto;
       margin-right: auto;
     }
-    .abstract-box{
-      background:#f9f9f9;
-      border:1px solid #ddd;
-      border-radius:8px;
-      padding:1rem 1.5rem;
-      box-shadow:0 2px 6px rgba(0,0,0,.05);
+
+    .abstract-box {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
     }
 
     /* Keyword mark: base shape; color comes inline from the filter */
-    mark.kw{ padding:0 .15em; border-radius:.2em; font-weight:600; }
+    mark.kw {
+      padding: 0 .15em;
+      border-radius: .2em;
+      font-weight: 600;
+    }
 
-    .muted{ color:#6c757d; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .muted {
+      color: #6c757d;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
 
     /* Sidebar layout for lg+ */
-    @media (min-width: 992px){
-      .layout{
-        display:grid;
+    @media (min-width: 992px) {
+      .layout {
+        display: grid;
         grid-template-columns: 320px 1fr;
-        gap:1.25rem;
+        gap: 1.25rem;
       }
-      .sidebar-sticky{
+
+      .sidebar-sticky {
         position: sticky;
         top: 5rem;
         align-self: start;
@@ -53,87 +69,178 @@
       }
     }
 
-    .chip{
-      display:inline-flex; align-items:center; gap:.35rem;
-      padding:.2rem .5rem; border-radius:999px;
-      background:#eef2ff; border:1px solid #c7d2fe;
-      font-size:.86rem; margin:.2rem .3rem .2rem 0;
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .2rem .5rem;
+      border-radius: 999px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      font-size: .86rem;
+      margin: .2rem .3rem .2rem 0;
     }
-    .chip .btn-close{ transform:scale(.8); opacity:.8; }
 
-    .offcanvas-header small{ color:#6c757d; }
-    .badge-count{ font-weight:500; }
+    .chip .btn-close {
+      transform: scale(.8);
+      opacity: .8;
+    }
+
+    .offcanvas-header small {
+      color: #6c757d;
+    }
+
+    .badge-count {
+      font-weight: 500;
+    }
 
     /* ===== Dark Mode ===== */
-    body.dark-mode{ background-color:#121212; color:#fff; }
-    body.dark-mode *:not(a):not(mark):not(.kw){ color:#fff !important; }
+    body.dark-mode {
+      background-color: #121212;
+      color: #fff;
+    }
 
-    body.dark-mode a{ color:#82aaff !important; }
+    /* === Dark mode override for abstracts (global, high priority) === */
+    body.dark-mode .abstract-box,
+    body.dark-mode .abstract-box.abstract-snippet {
+      background: #1e1e1e !important;
+      /* ensure override wins */
+      border-color: #333 !important;
+    }
+
+    /* keep text readable in dark mode */
+    body.dark-mode .abstract-box pre {
+      color: #eaeaea !important;
+    }
+
+
+
+
+
+    body.dark-mode *:not(a):not(mark):not(.kw) {
+      color: #fff !important;
+    }
+
+    body.dark-mode a {
+      color: #82aaff !important;
+    }
 
     /* Navbar: keep toggler visible in dark mode */
-    .navbar { transition: background-color .2s ease; }
-    body.dark-mode .navbar{ background-color:#1f1f1f !important; }
+    .navbar {
+      transition: background-color .2s ease;
+    }
+
+    body.dark-mode .navbar {
+      background-color: #1f1f1f !important;
+    }
+
     body.dark-mode .navbar a.nav-link,
-    body.dark-mode .navbar .navbar-brand{ color:#fff !important; }
-    body.dark-mode .navbar .navbar-toggler{ border-color:#888; }
-    body.dark-mode .navbar .navbar-toggler-icon{
+    body.dark-mode .navbar .navbar-brand {
+      color: #fff !important;
+    }
+
+    body.dark-mode .navbar .navbar-toggler {
+      border-color: #888;
+    }
+
+    body.dark-mode .navbar .navbar-toggler-icon {
       filter: invert(1) grayscale(100%) brightness(200%);
     }
 
     /* Cards */
-    body.dark-mode .card{ background-color:#1e1e1e; border-color:#333; }
+    body.dark-mode .card {
+      background-color: #1e1e1e;
+      border-color: #333;
+    }
 
     /* Chips */
-    body.dark-mode .chip{ background:#333; border-color:#555; }
+    body.dark-mode .chip {
+      background: #333;
+      border-color: #555;
+    }
 
     /* Forms */
     body.dark-mode .form-control,
     body.dark-mode .form-control-sm,
-    body.dark-mode .form-select{
-      background-color:#2a2a2a; border-color:#555; color:#fff;
+    body.dark-mode .form-select {
+      background-color: #2a2a2a;
+      border-color: #555;
+      color: #fff;
     }
-    body.dark-mode ::placeholder{ color:#bbb; }
+
+    body.dark-mode ::placeholder {
+      color: #bbb;
+    }
 
     /* Buttons */
-    body.dark-mode .btn{ background-color:#333; color:#fff; }
-    body.dark-mode .btn-outline-danger{ color:#ff6b6b; border-color:#ff6b6b; }
+    body.dark-mode .btn {
+      background-color: #333;
+      color: #fff;
+    }
+
+    body.dark-mode .btn-outline-danger {
+      color: #ff6b6b;
+      border-color: #ff6b6b;
+    }
 
     /* Alerts */
-    body.dark-mode .alert{ background-color:#2a2a2a; border-color:#444; }
+    body.dark-mode .alert {
+      background-color: #2a2a2a;
+      border-color: #444;
+    }
 
     /* Keep highlight readable in dark mode – color comes inline; only fallback here */
-    body.dark-mode mark.kw{ box-shadow: 0 0 0 1px rgba(0,0,0,.15) inset; }
+    body.dark-mode mark.kw {
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, .15) inset;
+    }
 
     /* Close button in dark mode */
-    body.dark-mode .btn-close{ filter: invert(1) grayscale(100%) brightness(200%); }
+    body.dark-mode .btn-close {
+      filter: invert(1) grayscale(100%) brightness(200%);
+    }
 
     /* Offcanvas */
-    body.dark-mode .offcanvas{ background-color:#1e1e1e; }
+    body.dark-mode .offcanvas {
+      background-color: #1e1e1e;
+    }
 
     /* Tables in dark mode */
     body.dark-mode table,
     body.dark-mode thead,
     body.dark-mode tbody,
     body.dark-mode th,
-    body.dark-mode td{
-      color:#fff !important; background-color:transparent !important;
+    body.dark-mode td {
+      color: #fff !important;
+      background-color: transparent !important;
     }
+
     body.dark-mode .table th,
-    body.dark-mode .table td{ border-color:#444 !important; }
-    body.dark-mode .table-hover tbody tr:hover{ background-color: rgba(255,255,255,.05) !important; }
+    body.dark-mode .table td {
+      border-color: #444 !important;
+    }
+
+    body.dark-mode .table-hover tbody tr:hover {
+      background-color: rgba(255, 255, 255, .05) !important;
+    }
 
     body.dark-mode .muted,
     body.dark-mode .text-muted,
-    body.dark-mode .small{ color:#ccc !important; }
+    body.dark-mode .small {
+      color: #ccc !important;
+    }
 
     /* Notes input: taller + resizable */
-    .notes-input{
-      min-height: 3.25rem;           /* ~2 lines */
-      resize: vertical;               /* let the user expand */
+    .notes-input {
+      min-height: 3.25rem;
+      /* ~2 lines */
+      resize: vertical;
+      /* let the user expand */
     }
+
     /* If a page turns notes into a textarea, keep same class working nicely */
-    textarea.notes-input{
-      min-height: 6rem;               /* ~4 lines */
+    textarea.notes-input {
+      min-height: 6rem;
+      /* ~4 lines */
       line-height: 1.35;
     }
   </style>
@@ -145,7 +252,8 @@
     <div class="container-fluid">
       <a class="navbar-brand" href="{{ url_for('home') }}">LitReview</a>
 
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav" aria-label="Toggle navigation">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"
+        aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
 
@@ -167,6 +275,14 @@
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('upload') }}">Datasets</a>
           </li>
+
+          <form class="d-flex ms-auto my-2 my-lg-0" role="search" action="{{ url_for('search_doi') }}" method="get"
+            style="max-width: 360px;">
+            <input class="form-control form-control-sm me-2" type="search" name="doi" placeholder="Find article by DOI…"
+              aria-label="DOI" value="{{ request.args.get('doi','') }}">
+            <button class="btn btn-sm btn-outline-primary" type="submit">Find</button>
+          </form>
+
         </ul>
 
         {% if active_dataset_id %}
@@ -179,7 +295,8 @@
         {% endif %}
 
         <!-- Open sidebar on small screens -->
-        <button class="btn btn-outline-primary d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#keywordsDrawer">
+        <button class="btn btn-outline-primary d-lg-none" type="button" data-bs-toggle="offcanvas"
+          data-bs-target="#keywordsDrawer">
           Keywords
         </button>
       </div>
@@ -197,27 +314,28 @@
 
             <div class="mb-2">
               {% if highlight_terms %}
-                {% for term in highlight_terms %}
-                <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
-                  <input type="hidden" name="term" value="{{ term }}">
-                  <span class="chip" title="Remove '{{ term }}'">
-                    {{ term }}
-                    <button type="submit" class="btn-close" aria-label="Remove"></button>
-                  </span>
-                </form>
-                {% endfor %}
+              {% for term in highlight_terms %}
+              <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
+                <input type="hidden" name="term" value="{{ term }}">
+                <span class="chip" title="Remove '{{ term }}'">
+                  {{ term }}
+                  <button type="submit" class="btn-close" aria-label="Remove"></button>
+                </span>
+              </form>
+              {% endfor %}
               {% else %}
-                <div class="text-muted small">No keywords yet.</div>
+              <div class="text-muted small">No keywords yet.</div>
               {% endif %}
             </div>
 
             <form method="post" action="{{ url_for('set_highlight') }}" class="mb-2">
               <div class="mb-2">
-                <textarea class="form-control" name="keywords" rows="2"
+                <textarea class="form-control" name="keywords" rows="5"
                   placeholder="Add keywords (comma, semicolon, or newline separated)">{{ highlight_query }}</textarea>
               </div>
               <div class="form-check mb-2">
-                <input class="form-check-input" type="checkbox" id="kwRegex" name="is_regex" {% if highlight_is_regex %}checked{% endif %}>
+                <input class="form-check-input" type="checkbox" id="kwRegex" name="is_regex" {% if highlight_is_regex
+                  %}checked{% endif %}>
                 <label class="form-check-label" for="kwRegex">Use regular expressions</label>
               </div>
               <button class="btn btn-sm btn-primary" type="submit">Add / Update</button>
@@ -237,16 +355,17 @@
       <!-- Main content -->
       <main class="py-3">
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-          <div class="mt-2">
-            {% for category, message in messages %}
-            <div class="alert alert-{{ 'secondary' if category=='message' else category }} alert-dismissible fade show" role="alert">
-              {{ message }}
-              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-            {% endfor %}
+        {% if messages %}
+        <div class="mt-2">
+          {% for category, message in messages %}
+          <div class="alert alert-{{ 'secondary' if category=='message' else category }} alert-dismissible fade show"
+            role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
-          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
@@ -264,17 +383,17 @@
     <div class="offcanvas-body">
       <div class="mb-2">
         {% if highlight_terms %}
-          {% for term in highlight_terms %}
-          <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
-            <input type="hidden" name="term" value="{{ term }}">
-            <span class="chip" title="Remove '{{ term }}'">
-              {{ term }}
-              <button type="submit" class="btn-close" aria-label="Remove"></button>
-            </span>
-          </form>
-          {% endfor %}
+        {% for term in highlight_terms %}
+        <form method="post" action="{{ url_for('remove_highlight') }}" class="d-inline">
+          <input type="hidden" name="term" value="{{ term }}">
+          <span class="chip" title="Remove '{{ term }}'">
+            {{ term }}
+            <button type="submit" class="btn-close" aria-label="Remove"></button>
+          </span>
+        </form>
+        {% endfor %}
         {% else %}
-          <div class="text-muted small">No keywords yet.</div>
+        <div class="text-muted small">No keywords yet.</div>
         {% endif %}
       </div>
 
@@ -284,7 +403,8 @@
             placeholder="Add keywords (comma, semicolon, or newline separated)">{{ highlight_query }}</textarea>
         </div>
         <div class="form-check mb-2">
-          <input class="form-check-input" type="checkbox" id="kwRegexMobile" name="is_regex" {% if highlight_is_regex %}checked{% endif %}>
+          <input class="form-check-input" type="checkbox" id="kwRegexMobile" name="is_regex" {% if highlight_is_regex
+            %}checked{% endif %}>
           <label class="form-check-label" for="kwRegexMobile">Use regular expressions</label>
         </div>
         <button class="btn btn-primary" type="submit">Add / Update</button>
@@ -321,4 +441,5 @@
     });
   </script>
 </body>
+
 </html>

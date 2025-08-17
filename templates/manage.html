@@ -291,6 +291,21 @@
     body.dark-mode .review-table tbody tr:hover {
         background-color: rgba(255, 255, 255, 0.05) !important;
     }
+    /* Dark mode: make abstract box dark with soft border */
+    body.dark-mode .abstract-box{
+    background:#1e1e1e;       /* was #f9f9f9 */
+    border-color:#333;        /* was #ddd */
+    }
+
+    /* (Optional) ensure text inside <pre> inherits light color in dark mode */
+    body.dark-mode .abstract-box pre{
+    color: inherit;
+    }
+
+
+
+
+
 
     /* Responsive */
     @media (max-width: 1200px) {
