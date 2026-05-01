@@ -205,6 +205,98 @@ def counts(dataset_id: int):
     return total, yes, no, unlabeled
 
 
+LABEL_QUEUE_HIST_MAX = 40
+
+
+def _label_queue_hist_key(dataset_id: int) -> str:
+    return f"label_queue_hist_{int(dataset_id)}"
+
+
+def _label_queue_hist_get(dataset_id: int) -> List[int]:
+    raw = session.get(_label_queue_hist_key(dataset_id))
+    if not isinstance(raw, list):
+        return []
+    out: List[int] = []
+    for x in raw:
+        try:
+            out.append(int(x))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _label_queue_hist_append_on_forward(dataset_id: int, article_id: int) -> None:
+    """Record order of unlabeled articles shown via label_next (not label_article)."""
+    key = _label_queue_hist_key(dataset_id)
+    h = _label_queue_hist_get(dataset_id)
+    aid = int(article_id)
+    if not h or h[-1] != aid:
+        h.append(aid)
+        if len(h) > LABEL_QUEUE_HIST_MAX:
+            h = h[-LABEL_QUEUE_HIST_MAX:]
+        session[key] = h
+        session.modified = True
+
+
+def _label_queue_prev_id(dataset_id: int, current_id: int) -> Optional[int]:
+    h = _label_queue_hist_get(dataset_id)
+    try:
+        i = h.index(int(current_id))
+    except ValueError:
+        return None
+    return h[i - 1] if i > 0 else None
+
+
+def _label_has_next_unlabeled(dataset_id: int, after_article_id: int) -> bool:
+    return (
+        Article.query.filter_by(dataset_id=dataset_id, label=None)
+        .filter(Article.id > int(after_article_id))
+        .order_by(Article.id.asc())
+        .first()
+        is not None
+    )
+
+
+def _label_screen_kwargs(dataset_id: int, article: Optional[Article]) -> Dict[str, Any]:
+    total, yes, no, unlabeled = counts(dataset_id)
+    pct_done = int(round(((yes + no) / total) * 100)) if total else 0
+    cats = Category.query.order_by(Category.name.asc()).all()
+    if article is None:
+        return {
+            "article": None,
+            "dataset_id": dataset_id,
+            "total": total,
+            "yes": yes,
+            "no": no,
+            "unlabeled": unlabeled,
+            "doi": None,
+            "source_title": None,
+            "cited_by": None,
+            "pct_done": pct_done,
+            "categories": cats,
+            "label_prev_article_id": None,
+            "label_has_next_unlabeled": False,
+        }
+    doi = extract_doi(article.extra_json)
+    source_title = extract_source_title(article.extra_json)
+    cited_by = extract_cited_by(article.extra_json)
+    return {
+        "article": article,
+        "dataset_id": dataset_id,
+        "total": total,
+        "yes": yes,
+        "no": no,
+        "unlabeled": unlabeled,
+        "doi": doi,
+        "source_title": source_title,
+        "cited_by": cited_by,
+        "pct_done": pct_done,
+        "categories": cats,
+        "label_prev_article_id": _label_queue_prev_id(dataset_id, article.id),
+        "label_has_next_unlabeled": _label_has_next_unlabeled(dataset_id, article.id),
+    }
+
+
 # ----------------------------
 # DOI / Source / Cited-by extractors
 # ----------------------------
@@ -758,36 +850,31 @@ def set_highlight():
 def label_next(dataset_id):
     skip_id = request.args.get("skip_id", type=int)
 
-    base_q = Article.query.filter_by(dataset_id=dataset_id, label=None).order_by(
-        Article.id.asc()
+    base_q = (
+        Article.query.options(selectinload(Article.categories))
+        .filter_by(dataset_id=dataset_id, label=None)
+        .order_by(Article.id.asc())
     )
     if skip_id:
         a = base_q.filter(Article.id > skip_id).first() or base_q.first()
     else:
         a = base_q.first()
 
-    total, yes, no, unlabeled = counts(dataset_id)
+    if a is not None:
+        _label_queue_hist_append_on_forward(dataset_id, a.id)
 
-    doi = extract_doi(a.extra_json) if a else None
-    source_title = extract_source_title(a.extra_json) if a else None
-    cited_by = extract_cited_by(a.extra_json) if a else None
+    return render_template("label.html", **_label_screen_kwargs(dataset_id, a))
 
-    pct_done = int(round(((yes + no) / total) * 100)) if total else 0
 
-    return render_template(
-        "label.html",
-        article=a,
-        dataset_id=dataset_id,
-        total=total,
-        yes=yes,
-        no=no,
-        unlabeled=unlabeled,
-        doi=doi,
-        source_title=source_title,
-        cited_by=cited_by,
-        pct_done=pct_done,
-        categories=Category.query.order_by(Category.name.asc()).all(),
+@app.route("/label/<int:dataset_id>/article/<int:article_id>")
+def label_article(dataset_id, article_id):
+    Dataset.query.get_or_404(dataset_id)
+    a = (
+        Article.query.options(selectinload(Article.categories))
+        .filter_by(id=article_id, dataset_id=dataset_id)
+        .first_or_404()
     )
+    return render_template("label.html", **_label_screen_kwargs(dataset_id, a))
 
 
 @app.route("/label/submit/<int:article_id>", methods=["POST"])
@@ -1201,4 +1288,7 @@ def update_search_string(dataset_id):
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    # Default 5001: macOS AirPlay Receiver binds 5000 and answers HTTP with 403
+    # (not Flask). Override with PORT=5000 if you disabled AirPlay or use Linux.
+    _port = int(os.environ.get("PORT", "5001"))
+    app.run(debug=True, host="127.0.0.1", port=_port)

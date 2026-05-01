@@ -108,6 +108,33 @@
   body[data-lr-reading="paper"] #mapArticleOffcanvasBody .map-sim-neighbor-link:hover {
     background: rgba(122, 92, 56, 0.12);
   }
+
+  /* Chips de categoria no painel do mapa — contraste legível em branco / papel / escuro */
+  #mapArticleOffcanvasBody .map-cat-chip {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 0.4rem 0.85rem;
+    line-height: 1.25;
+    border-radius: 999px;
+    color: #1a2433;
+    background: linear-gradient(180deg, rgba(61, 90, 128, 0.12), rgba(61, 90, 128, 0.22));
+    border: 1px solid rgba(61, 90, 128, 0.38);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+  body.dark-mode #mapArticleOffcanvasBody .map-cat-chip {
+    color: #f0f2f7;
+    background: linear-gradient(180deg, rgba(88, 101, 132, 0.55), rgba(38, 42, 54, 0.98));
+    border-color: rgba(160, 172, 205, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  body[data-lr-reading="paper"] #mapArticleOffcanvasBody .map-cat-chip {
+    color: #2a1f14;
+    background: linear-gradient(180deg, rgba(139, 106, 72, 0.2), rgba(122, 92, 56, 0.32));
+    border-color: rgba(90, 72, 52, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 252, 245, 0.55);
+  }
   .map-ranking-table tbody tr {
     cursor: pointer;
   }
@@ -275,6 +302,11 @@
         <input class="form-check-input" type="checkbox" id="includeSim" checked>
         <label class="form-check-label small" for="includeSim">Mostrar semelhança</label>
       </div>
+      <div class="form-check mt-2">
+        <input class="form-check-input" type="checkbox" id="mapShowCatLabels" title="Acrescenta os nomes das categorias ao rótulo de cada nó no grafo">
+        <label class="form-check-label small" for="mapShowCatLabels">Mostrar categorias nos nós</label>
+      </div>
+      <p class="form-text small mb-0 mt-1 text-muted">Com esta opção, cada trabalho mostra no mapa as categorias que lhe foram atribuídas (se existirem). O painel ao clicar também lista as categorias.</p>
     </div>
     <div class="col-12 d-flex flex-wrap gap-2 justify-content-lg-end">
       <button type="button" class="btn btn-sm btn-primary" id="btnReload">Recarregar dados</button>
@@ -443,6 +475,54 @@
     return out;
   }
 
+  const MAP_SHOW_CAT_LABELS_KEY = 'litreview_map_show_categories_on_nodes';
+
+  function buildMapNodeLabel(shortLabel, categories, showCats) {
+    const base = String(shortLabel || '').trim() || '(sem título)';
+    if (!showCats || !categories || !categories.length) return base;
+    const catPart = categories.join(', ');
+    const sep = ' · ';
+    const max = 88;
+    const extra = sep + catPart;
+    if (base.length + extra.length <= max) return base + extra;
+    const room = Math.max(8, max - extra.length - 1);
+    const trimmed = base.length > room ? base.slice(0, room - 1) + '…' : base;
+    return trimmed + extra;
+  }
+
+  function buildNodeTooltip(row) {
+    const parts = [
+      String(row.fullTitle || row.label || '').trim(),
+      String(row.screeningLabel || '').trim(),
+      row.categories && row.categories.length
+        ? ('Categorias: ' + row.categories.join(', '))
+        : 'Categorias: (nenhuma)',
+      row.year ? ('Ano: ' + String(row.year)) : null,
+      'Clique no nó para ver a ficha completa.',
+    ].filter(function (p) { return p; });
+    return parts.join('\n');
+  }
+
+  function applyCategoryLabelsToNodes() {
+    if (!nodesDS) return;
+    const show = document.getElementById('mapShowCatLabels') && document.getElementById('mapShowCatLabels').checked;
+    const ids = nodesDS.getIds();
+    if (!ids.length) return;
+    const updates = ids.map(function (id) {
+      const r = nodesDS.get(id);
+      const short = (r.shortLabel != null && r.shortLabel !== '') ? r.shortLabel : (r.label || '');
+      return {
+        id: id,
+        label: buildMapNodeLabel(short, r.categories, show),
+        title: buildNodeTooltip(r),
+      };
+    });
+    nodesDS.update(updates);
+    if (network && typeof network.redraw === 'function') {
+      try { network.redraw(); } catch (e) {}
+    }
+  }
+
   function buildSimilarNeighborsHtml(articleId) {
     const sim = getSimilarNeighborsForNode(articleId);
     if (!sim.length) {
@@ -465,13 +545,16 @@
       const badge = nrow
         ? '<span class="badge ' + badgeClassForGroup(nrow.group) + ' align-middle ms-1">' + esc(nrow.screeningLabel || '') + '</span>'
         : '';
+      const catMini = (nrow && nrow.categories && nrow.categories.length)
+        ? '<span class="text-muted small d-block mt-1">' + esc(nrow.categories.join(', ')) + '</span>'
+        : '';
       return (
         '<li class="mb-1">' +
         '<a href="#" class="map-sim-neighbor-link" data-map-neighbor-id="' + esc(String(s.otherId)) + '">' +
         '<span class="text-muted small">#' + esc(String(s.otherId)) + '</span> · ' +
         '<span class="fw-medium">' + esc(short) + '</span> ' + badge +
         '<span class="text-muted small ms-1">· Jaccard ≈ ' + esc(String(pct)) + '%</span>' +
-        '</a></li>'
+        '</a>' + catMini + '</li>'
       );
     });
     return (
@@ -493,10 +576,11 @@
     const year = row.year ? esc(String(row.year)) : '—';
     const cats = Array.isArray(row.categories) ? row.categories : [];
     const catHtml = cats.length
-        ? '<div class="mb-2">' + cats.map(function (c) {
-          return '<span class="badge rounded-pill bg-body-secondary border me-1 mb-1 fw-normal">' + esc(c) + '</span>';
+        ? '<div class="mb-2"><span class="text-muted small d-block mb-1">Categorias atribuídas a este registo</span>' +
+        cats.map(function (c) {
+          return '<span class="map-cat-chip me-1 mb-1">' + esc(c) + '</span>';
         }).join('') + '</div>'
-      : '<p class="small text-muted mb-2">Sem categorias.</p>';
+      : '<p class="small text-muted mb-2"><span class="text-muted small d-block mb-1">Categorias</span>Nenhuma categoria atribuída a este registo.</p>';
     const abs = row.abstractPreview || '';
     const absBlock = abs
       ? '<div class="mb-0"><span class="text-muted small d-block mb-1">Resumo (pré-visualização)</span><pre class="abstract-preview mb-0">' + esc(abs) + '</pre></div>'
@@ -506,7 +590,7 @@
       '<h6 class="fw-semibold mb-2">' + esc(row.fullTitle || row.label || '(sem título)') + '</h6>' +
       '<p class="small mb-2"><span class="text-muted">Ano</span> ' + year + '</p>' +
       '<p class="mb-2"><span class="badge ' + badgeClassForGroup(row.group) + '">' + esc(row.screeningLabel || '') + '</span></p>' +
-      doiBlock + '<div class="mb-2"><span class="text-muted small">Categorias</span></div>' + catHtml + absBlock + simBlock;
+      doiBlock + catHtml + absBlock + simBlock;
   }
 
   function appendMapFilterParams(p) {
@@ -751,19 +835,20 @@
       return;
     }
 
+    const showCatOnNodes = document.getElementById('mapShowCatLabels') && document.getElementById('mapShowCatLabels').checked;
     nodesDS = new vis.DataSet(n.map(function (x) {
-      /* vis-network mostra `title` como texto simples — HTML aparece literal; usar linhas. */
-      const tipParts = [
-        String(x.fullTitle || x.label || '').trim(),
-        String(x.screeningLabel || '').trim(),
-        x.year ? 'Ano: ' + String(x.year) : null,
-        'Clique no nó para ver o painel completo.',
-      ].filter(function (p) { return p; });
-      const tip = tipParts.join('\n');
-      return {
+      const shortLbl = (x.label || '').length > 48 ? (x.label || '').slice(0, 46) + '…' : (x.label || '');
+      const row = {
         id: x.id,
-        label: (x.label || '').length > 48 ? (x.label || '').slice(0, 46) + '…' : (x.label || ''),
-        title: tip,
+        shortLabel: shortLbl,
+        label: buildMapNodeLabel(shortLbl, x.categories || [], showCatOnNodes),
+        title: buildNodeTooltip({
+          fullTitle: x.fullTitle,
+          label: x.label,
+          screeningLabel: x.screeningLabel,
+          categories: x.categories || [],
+          year: x.year,
+        }),
         group: x.group || 'unlabeled',
         fullTitle: x.fullTitle || '',
         year: x.year || '',
@@ -772,6 +857,7 @@
         categories: x.categories || [],
         screeningLabel: x.screeningLabel || '',
       };
+      return row;
     }));
 
     const mapTheme = getReadingTheme();
@@ -1033,6 +1119,20 @@
       cb.disabled = false;
     });
   });
+  (function wireMapShowCategoriesOnNodes() {
+    const cb = document.getElementById('mapShowCatLabels');
+    if (!cb) return;
+    try {
+      if (localStorage.getItem(MAP_SHOW_CAT_LABELS_KEY) === '1') cb.checked = true;
+    } catch (e) {}
+    cb.addEventListener('change', function () {
+      try {
+        localStorage.setItem(MAP_SHOW_CAT_LABELS_KEY, cb.checked ? '1' : '0');
+      } catch (e) {}
+      applyCategoryLabelsToNodes();
+    });
+  })();
+
   document.getElementById('layoutMode').addEventListener('change', function () {
     if (nodesDS && edgesDS) rebuildNetwork();
   });

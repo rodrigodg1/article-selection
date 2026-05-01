@@ -167,40 +167,45 @@
     background-color: #1f1f1f;
   }
 
-  /* Paper reading — warm notes + categories */
+  /* Paper reading — pastel linen (#f5f1ed) + categorias suaves */
   body[data-lr-reading="paper"] .notes-input {
-    background-color: #fff9f0;
-    border-color: rgba(88, 64, 38, 0.22);
+    background-color: #f5f1ed;
+    border-color: rgba(72, 58, 48, 0.2);
     color: #2a2419;
   }
 
   body[data-lr-reading="paper"] .notes-input:hover {
-    background-color: #fff4e6;
-    border-color: rgba(88, 64, 38, 0.3);
+    background-color: #f0ebe6;
+    border-color: rgba(72, 58, 48, 0.28);
   }
 
   body[data-lr-reading="paper"] .notes-input:focus {
-    border-color: #8b6914;
-    box-shadow: 0 0 0 0.15rem rgba(139, 105, 20, 0.22);
-    background-color: #fffef8;
+    border-color: #7a6a5a;
+    box-shadow: 0 0 0 0.15rem rgba(92, 77, 66, 0.2);
+    background-color: #fdfcfa;
   }
 
   body[data-lr-reading="paper"] .category-box {
-    background: rgba(122, 92, 56, 0.08);
-    border-color: rgba(88, 64, 38, 0.18);
+    background: rgba(245, 241, 237, 0.85);
+    border-color: rgba(72, 58, 48, 0.16);
   }
 
   body[data-lr-reading="paper"] .category-chip {
-    background: #f5ead8;
-    border-color: rgba(107, 83, 68, 0.35);
+    background: #ebe6e1;
+    border-color: rgba(72, 58, 48, 0.28);
     color: #3d3228;
+  }
+
+  body[data-lr-reading="paper"] .pmr-card {
+    background: rgba(245, 241, 237, 0.65);
+    border-color: rgba(72, 58, 48, 0.14);
   }
 </style>
 
 <div class="lr-page-header align-items-center">
   <div>
     <h2 class="h3 mb-1">Label</h2>
-    <p class="text-muted small mb-0">Screen the next unlabeled record in this dataset.</p>
+    <p class="text-muted small mb-0">Screen unlabeled records in order. Use <b>Previous in queue</b> to reopen the last article from this session, or <b>Next unlabeled</b> to jump ahead by id.</p>
   </div>
   <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('upload') }}">Datasets</a>
@@ -239,6 +244,29 @@
 {% if article %}
 <div class="card lr-card mb-3">
   <div class="card-body">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom" style="border-color: var(--lr-border, #e5e7eb) !important;">
+      <div class="small text-muted">
+        Article <span class="mono">{{ article.id }}</span>
+        {% if article.label %}
+        <span class="badge bg-secondary ms-1">Labeled: {{ article.label }}</span>
+        {% else %}
+        <span class="badge bg-warning text-dark ms-1">Unlabeled</span>
+        {% endif %}
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        {% if label_prev_article_id %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_article', dataset_id=dataset_id, article_id=label_prev_article_id) }}">← Previous in queue</a>
+        {% else %}
+        <span class="btn btn-outline-secondary btn-sm disabled" tabindex="-1" aria-disabled="true">← Previous in queue</span>
+        {% endif %}
+        {% if label_has_next_unlabeled %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id, skip_id=article.id) }}">Next unlabeled →</a>
+        {% else %}
+        <span class="btn btn-outline-secondary btn-sm disabled" tabindex="-1" aria-disabled="true">Next unlabeled →</span>
+        {% endif %}
+      </div>
+    </div>
 
     {% if doi %}
     <div class="mb-1">

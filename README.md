@@ -31,7 +31,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Abre o browser em **http://127.0.0.1:5000/** (porta por omissão do Flask em modo desenvolvimento).
+Abre o browser em **http://127.0.0.1:5001/** (porta por omissão neste projeto). No macOS Monterey ou mais recente, o **AirPlay Receiver** do sistema usa a porta **5000**; se abrires `http://127.0.0.1:5000` sem o Flask nessa porta, o Chrome pode mostrar **403** — não é a app a negar acesso. Podes usar `PORT=5000 python app.py` só depois de desativar o AirPlay em *Definições do Sistema → Geral → AirDrop e Handoff → Receptor AirPlay*, ou deixar a omissão **5001**.
 
 Na **primeira execução** é criada uma base **SQLite** local (por omissão `literature.db` no diretório de trabalho da app) com tabelas vazias.
 
