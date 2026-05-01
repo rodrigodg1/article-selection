@@ -28,9 +28,13 @@
   }
 
   .pmr-card {
-    border: 1px solid #e5e7eb;
-    border-radius: .5rem;
+    border: 1px solid var(--lr-border, #e5e7eb);
+    border-radius: var(--lr-radius-sm, 8px);
     padding: .75rem;
+    background: rgba(255,255,255,.5);
+  }
+  body.dark-mode .pmr-card {
+    background: rgba(255,255,255,.03);
   }
 
   .pmr-text {
@@ -45,18 +49,18 @@
 
   /* Abstract box with centered title */
   .abstract-box {
-    background: #f9f9f9;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    background: var(--lr-surface, #fff);
+    border: 1px solid var(--lr-border, #e5e7eb);
+    border-radius: var(--lr-radius, 12px);
     padding: 1.5rem;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--lr-shadow, 0 2px 8px rgba(0,0,0,.06));
     text-align: center;
   }
 
   body.dark-mode .abstract-box {
-    background: #1b1b1b;
-    border: 1px solid #333;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    background: var(--lr-surface, #16181f);
+    border-color: var(--lr-border, #333);
+    box-shadow: none;
   }
 
   .abstract-title {
@@ -67,11 +71,12 @@
 
   .abstract-box pre {
     white-space: pre-wrap;
-    font-family: "Georgia", serif;
-    margin: 0 auto;
-    font-size: 1.2rem;
-    line-height: 1.6;
-    max-width: 98ch;
+    font-family: var(--lr-font-serif, "Source Serif 4", Georgia, serif);
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.65;
+    max-width: 100%;
+    width: 100%;
     text-align: left;
   }
 
@@ -79,12 +84,14 @@
   .category-box {
     margin-top: 1rem;
     padding: 1rem 1.25rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    border: 1px solid var(--lr-border, #e5e7eb);
+    border-radius: var(--lr-radius-sm, 8px);
+    background: rgba(61, 90, 128, 0.04);
   }
 
   body.dark-mode .category-box {
-    border-color: #333;
+    border-color: var(--lr-border, #333);
+    background: rgba(130, 170, 255, 0.06);
   }
 
   .category-chip {
@@ -159,44 +166,78 @@
     box-shadow: 0 0 0 0.15rem rgba(130, 170, 255, 0.25);
     background-color: #1f1f1f;
   }
+
+  /* Paper reading — warm notes + categories */
+  body[data-lr-reading="paper"] .notes-input {
+    background-color: #fff9f0;
+    border-color: rgba(88, 64, 38, 0.22);
+    color: #2a2419;
+  }
+
+  body[data-lr-reading="paper"] .notes-input:hover {
+    background-color: #fff4e6;
+    border-color: rgba(88, 64, 38, 0.3);
+  }
+
+  body[data-lr-reading="paper"] .notes-input:focus {
+    border-color: #8b6914;
+    box-shadow: 0 0 0 0.15rem rgba(139, 105, 20, 0.22);
+    background-color: #fffef8;
+  }
+
+  body[data-lr-reading="paper"] .category-box {
+    background: rgba(122, 92, 56, 0.08);
+    border-color: rgba(88, 64, 38, 0.18);
+  }
+
+  body[data-lr-reading="paper"] .category-chip {
+    background: #f5ead8;
+    border-color: rgba(107, 83, 68, 0.35);
+    color: #3d3228;
+  }
 </style>
 
-<div class="d-flex justify-content-between align-items-baseline">
-  <h3>Label articles</h3>
+<div class="lr-page-header align-items-center">
   <div>
-    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('upload') }}">Upload new</a>
+    <h2 class="h3 mb-1">Label</h2>
+    <p class="text-muted small mb-0">Screen the next unlabeled record in this dataset.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('upload') }}">Datasets</a>
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('manage', dataset_id=dataset_id) }}">Manage</a>
-
-    <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
+    <a class="btn btn-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
   </div>
 </div>
 
-<div class="mb-2 muted">
-  Dataset {{ dataset_id }} &middot;
-  Yes: <b>{{ yes }}</b> &nbsp;
-  No: <b>{{ no }}</b> &nbsp;
-  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
-  Total: <b>{{ total }}</b>
+<div class="lr-stat-line">
+  Dataset <span class="mono">{{ dataset_id }}</span> ·
+  Yes <b>{{ yes }}</b> ·
+  No <b>{{ no }}</b> ·
+  Unlabeled <b>{{ unlabeled }}</b> ·
+  Total <b>{{ total }}</b>
 </div>
 
 {% if total and total > 0 %}
-<div class="mb-3">
-  <div class="d-flex justify-content-between small mb-1">
-    <div><strong>Progress:</strong> {{ pct_done }}%</div>
-    <div><span class="muted">Remaining: {{ unlabeled }}</span></div>
+  {% set _p = pct_done|default(0)|int %}
+  {% set _prog_tier = 'done' if _p >= 100 else ('high' if _p >= 60 else ('mid' if _p >= 30 else 'low')) %}
+<div class="lr-progress-block mb-3">
+  <div class="lr-progress-head">
+    <span class="lr-progress-label">Labeling progress</span>
+    <span class="lr-progress-meta">
+      <span class="lr-progress-pct">{{ _p }}%</span><span class="lr-progress-sep"> · </span><span class="lr-progress-remain">{{ unlabeled }} left</span>
+    </span>
   </div>
-  <div class="progress" role="progressbar" aria-valuenow="{{ pct_done }}" aria-valuemin="0" aria-valuemax="100">
-    <div
-      class="progress-bar {% if pct_done >= 100 %}bg-success{% elif pct_done >= 60 %}bg-info{% elif pct_done >= 30 %}bg-warning{% else %}bg-secondary{% endif %}"
-      style="width: {{ pct_done|default(0)|int }}%;">
-      {{ pct_done|default(0)|int }}%
+  <div class="progress lr-progress" role="progressbar" aria-valuenow="{{ _p }}" aria-valuemin="0" aria-valuemax="100"
+    aria-label="Labeling progress {{ _p }} percent">
+    <div class="progress-bar lr-progress-bar lr-progress-bar--{{ _prog_tier }}" style="width: {{ _p }}%;">
+      <span class="visually-hidden">{{ _p }}% complete</span>
     </div>
   </div>
 </div>
 {% endif %}
 
 {% if article %}
-<div class="card mb-3">
+<div class="card lr-card mb-3">
   <div class="card-body">
 
     {% if doi %}
@@ -284,9 +325,9 @@
       <form method="post" action="{{ url_for('label_submit', article_id=article.id) }}"
         class="d-flex flex-column align-items-center gap-3">
         <div class="d-flex flex-wrap justify-content-center actions-group">
-          <button name="decision" value="no" class="btn btn-outline-danger btn-lg">Not related</button>
-          <button name="decision" value="skip" class="btn btn-outline-secondary btn-lg">Skip</button>
-          <button name="decision" value="yes" class="btn btn-success btn-lg">Related</button>
+          <button name="decision" value="no" class="btn btn-outline-danger btn-lg px-4">Not related</button>
+          <button name="decision" value="skip" class="btn btn-outline-secondary btn-lg px-4">Skip</button>
+          <button name="decision" value="yes" class="btn btn-success btn-lg px-4 fw-semibold">Related</button>
         </div>
         <input class="form-control form-control-sm notes-input" name="notes" placeholder="Notes (optional)">
       </form>
@@ -311,7 +352,7 @@
   </div>
 </div>
 {% else %}
-<div class="alert alert-success">
+<div class="alert alert-success border-0 shadow-sm">
   All items in this dataset are labeled. Use <b>Review</b> to inspect or relabel, or <b>Upload</b> to start a new set.
 </div>
 {% endif %}

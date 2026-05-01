@@ -1,10 +1,17 @@
+"""
+article-selection: Flask app for screening bibliographic records from CSV.
+
+Upload creates datasets and articles; users label yes/no, add notes and
+categories, highlight terms in abstracts, export labeled CSV, and explore an
+interactive citation / similarity map when reference DOIs or text overlap exist.
+"""
 import os
 import io
 import re
 import html
 import unicodedata
 import datetime as dt
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List, Dict, Set, Any
 
 from zoneinfo import ZoneInfo
 
@@ -21,19 +28,29 @@ from flask import (
     render_template,
     flash,
     session,
+    jsonify,
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 import pandas as pd
+
+from citation_map import build_map_payload, build_similarity_ranking
 
 # ----------------------------
 # Flask + DB setup
 # ----------------------------
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
+# Vercel serverless: only /tmp is writable; default DB lives there unless overridden.
+_default_db = (
+    "sqlite:////tmp/literature.db"
+    if os.environ.get("VERCEL")
+    else "sqlite:///literature.db"
+)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "SQLALCHEMY_DATABASE_URI", "sqlite:///literature.db"  # local default
+    "SQLALCHEMY_DATABASE_URI", _default_db
 )
 db = SQLAlchemy(app)
 
@@ -94,6 +111,50 @@ Article.categories = db.relationship(
     lazy="subquery",
     backref=db.backref("articles", lazy=True),
 )
+
+
+def apply_map_article_filters(articles: List[Any], args) -> List[Any]:
+    """
+    Keep articles that match triage (label) and optional category rules.
+    Query args (all optional):
+      inc_yes, inc_no, inc_unl — "0" excludes that group (default include all).
+      cat — repeat for category ids; article must have at least one (OR).
+      uncat_only — "1" keeps only articles with zero categories (ignores cat list).
+    """
+    inc_yes = (args.get("inc_yes") or "1") != "0"
+    inc_no = (args.get("inc_no") or "1") != "0"
+    inc_unl = (args.get("inc_unl") or "1") != "0"
+    if not (inc_yes or inc_no or inc_unl):
+        inc_yes = inc_no = inc_unl = True
+
+    cat_ids: Set[int] = set()
+    for raw in args.getlist("cat"):
+        try:
+            cat_ids.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+
+    uncat_only = (args.get("uncat_only") or "").lower() in ("1", "true", "yes")
+
+    def label_ok(a: Any) -> bool:
+        lab = getattr(a, "label", None)
+        if lab == "yes":
+            return inc_yes
+        if lab == "no":
+            return inc_no
+        return inc_unl
+
+    def category_ok(a: Any) -> bool:
+        cats = getattr(a, "categories", None) or []
+        a_ids = {getattr(c, "id", c) for c in cats}
+        if uncat_only:
+            return len(a_ids) == 0
+        if cat_ids:
+            return bool(a_ids & cat_ids)
+        return True
+
+    return [a for a in articles if label_ok(a) and category_ok(a)]
+
 
 # ----------------------------
 # Column detection
@@ -168,7 +229,8 @@ def extract_doi(extras: Optional[Dict]) -> Optional[str]:
     if not extras:
         return None
     for k, v in extras.items():
-        if "doi" in str(k).lower():
+        lk = str(k).lower().strip()
+        if "doi" in lk or lk == "di":  # WoS column "DI"
             s = str(v or "").strip()
             if not s:
                 continue
@@ -961,6 +1023,112 @@ def works(dataset_id):
 # ----------------------------
 # Export
 # ----------------------------
+@app.route("/map/<int:dataset_id>")
+def citation_map_view(dataset_id):
+    Dataset.query.get_or_404(dataset_id)
+    map_categories = Category.query.order_by(Category.name.asc()).all()
+    return render_template(
+        "citation_map.html", dataset_id=dataset_id, map_categories=map_categories
+    )
+
+
+@app.route("/api/map/<int:dataset_id>")
+def citation_map_api(dataset_id):
+    Dataset.query.get_or_404(dataset_id)
+    min_sim = request.args.get("min_sim", type=float)
+    if min_sim is None or min_sim < 0:
+        min_sim = 0.06
+    top_k = request.args.get("top_k", type=int)
+    if top_k is None or top_k < 1:
+        top_k = 4
+    top_k = min(top_k, 12)
+    include_sim = request.args.get("include_sim", "1").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
+    rows_all = (
+        Article.query.options(selectinload(Article.categories))
+        .filter_by(dataset_id=dataset_id)
+        .order_by(Article.id.asc())
+        .all()
+    )
+    rows_f = apply_map_article_filters(rows_all, request.args)
+    n_all = len(rows_all)
+    if not rows_all:
+        payload = build_map_payload(
+            [],
+            min_similarity=min_sim,
+            top_k_similar=top_k,
+            include_similarity=include_sim,
+        )
+        return jsonify(payload)
+    if not rows_f:
+        return jsonify(
+            {
+                "nodes": [],
+                "edges": [],
+                "stats": {
+                    "n_articles": 0,
+                    "n_in_dataset": n_all,
+                    "n_after_filter": 0,
+                    "n_citation_edges": 0,
+                    "n_similarity_edges": 0,
+                    "similarity_skipped": False,
+                    "message": "Nenhum artigo corresponde aos filtros ativos.",
+                    "citation_hint": None,
+                },
+            }
+        )
+    payload = build_map_payload(
+        rows_f,
+        min_similarity=min_sim,
+        top_k_similar=top_k,
+        include_similarity=include_sim,
+    )
+    st = payload.setdefault("stats", {})
+    st["n_in_dataset"] = n_all
+    st["n_after_filter"] = len(rows_f)
+    return jsonify(payload)
+
+
+@app.route("/api/map/ranking/<int:dataset_id>")
+def similarity_ranking_api(dataset_id):
+    Dataset.query.get_or_404(dataset_id)
+    min_sim = request.args.get("min_sim", type=float)
+    if min_sim is None or min_sim < 0:
+        min_sim = 0.06
+    rows_all = (
+        Article.query.options(selectinload(Article.categories))
+        .filter_by(dataset_id=dataset_id)
+        .order_by(Article.id.asc())
+        .all()
+    )
+    rows_f = apply_map_article_filters(rows_all, request.args)
+    n_all = len(rows_all)
+    if not rows_all:
+        return jsonify(build_similarity_ranking([], min_similarity=min_sim))
+    if not rows_f:
+        return jsonify(
+            {
+                "ranking": [],
+                "stats": {
+                    "n_articles": 0,
+                    "n_in_dataset": n_all,
+                    "n_after_filter": 0,
+                    "skipped": False,
+                    "min_similarity": min_sim,
+                    "message": "Nenhum artigo corresponde aos filtros ativos.",
+                },
+            }
+        )
+    out = build_similarity_ranking(rows_f, min_similarity=min_sim)
+    st = out.setdefault("stats", {})
+    st["n_in_dataset"] = n_all
+    st["n_after_filter"] = len(rows_f)
+    return jsonify(out)
+
+
 @app.route("/export/<int:dataset_id>")
 def export(dataset_id):
     # Fetch dataset to access its stored search query

@@ -5,43 +5,53 @@
   .works-table th:nth-child(2){width:auto}
   .works-table th:nth-child(3){width:80px}
   .works-table th:nth-child(4){width:160px}
-  .abstract-cell pre{white-space:pre-wrap;margin:0;font-family:"Georgia",serif;line-height:1.55}
+  .abstract-cell pre{
+    white-space:pre-wrap;margin:0;
+    font-family: var(--lr-font-serif, "Source Serif 4", Georgia, serif);
+    line-height:1.6;
+    font-size: 1.02rem;
+  }
   .abstract-snippet{max-height:10rem;overflow:hidden;transition:max-height .25s ease}
   .abstract-expanded{max-height:none!important}
-  .toggle-abs{display:inline-block;margin-top:.25rem}
-  .term-chip{display:inline-flex;gap:.3rem;align-items:center;background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:.15rem .5rem;margin:.15rem .25rem .15rem 0;font-size:.85rem}
-  body.dark-mode .term-chip{background:#333;border-color:#555}
+  .toggle-abs{display:inline-block;margin-top:.35rem;font-weight:500}
+  .term-chip{display:inline-flex;gap:.3rem;align-items:center;background:var(--lr-accent-soft, #eef2ff);border:1px solid rgba(61,90,128,.22);border-radius:999px;padding:.2rem .55rem;margin:.15rem .25rem .15rem 0;font-size:.85rem;font-weight:500}
+  body.dark-mode .term-chip{background:rgba(130,170,255,.1);border-color:rgba(130,170,255,.28)}
+  body[data-lr-reading="paper"] .term-chip{background:rgba(122,92,56,.14);border-color:rgba(107,83,68,.32);color:#3d3228}
 </style>
 
-<div class="d-flex justify-content-between align-items-baseline mb-2">
-  <h3>Highlights</h3>
+<div class="lr-page-header align-items-center">
   <div>
+    <h2 class="h3 mb-1">Highlights</h2>
+    <p class="text-muted small mb-0">Abstracts that match your current highlight keywords.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Back to labeling</a>
-    <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
+    <a class="btn btn-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
   </div>
 </div>
 
-<div class="mb-2 muted">
-  Dataset {{ dataset_id }} &middot;
-  Yes: <b>{{ yes }}</b> &nbsp;
-  No: <b>{{ no }}</b> &nbsp;
-  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
-  Total: <b>{{ total }}</b>
+<div class="lr-stat-line">
+  Dataset <span class="mono">{{ dataset_id }}</span> ·
+  Yes <b>{{ yes }}</b> ·
+  No <b>{{ no }}</b> ·
+  Unlabeled <b>{{ unlabeled }}</b> ·
+  Total <b>{{ total }}</b>
 </div>
 
 <div class="mb-3">
-  <div class="small muted mb-1">Showing only works whose abstract matches your current Highlight keywords{% if is_regex %} (regex mode){% endif %}.</div>
+  <div class="small text-muted mb-2">Filtered by keywords{% if is_regex %} (regex mode){% endif %}.</div>
   {% if terms and terms|length>0 %}
     {% for t in terms %}<span class="term-chip">{{ t }}</span>{% endfor %}
   {% else %}
-    <div class="alert alert-info py-2 mb-0">
-      No highlight keywords set. Add some in the left sidebar (or mobile drawer) and refresh this page.
+    <div class="alert alert-info border-0 shadow-sm py-2 mb-0">
+      No highlight keywords set. Add some in the sidebar (or mobile drawer) and reload this page.
     </div>
   {% endif %}
 </div>
 
-<div class="table-responsive">
-  <table class="table table-hover align-middle works-table">
+<div class="lr-table-wrap">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle works-table mb-0">
     <thead>
       <tr>
         <th>Title</th>
@@ -80,17 +90,18 @@
             {% endfor %}
           {% endif %}
           {% if doi_val %}
-            <a href="https://doi.org/{{ doi_val }}" target="_blank" rel="noopener">https://doi.org/{{ doi_val }}</a>
+            <a href="https://doi.org/{{ doi_val }}" target="_blank" rel="noopener" class="small text-break">https://doi.org/{{ doi_val }}</a>
           {% else %}
             <span class="text-muted">—</span>
           {% endif %}
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="muted">No matches for the current keywords.</td></tr>
+      <tr><td colspan="4" class="text-muted py-4 text-center">No matches for the current keywords.</td></tr>
       {% endfor %}
     </tbody>
-  </table>
+    </table>
+  </div>
 </div>
 
 <script>

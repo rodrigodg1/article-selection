@@ -6,35 +6,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>Literature Review Helper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
 
   <style>
     :root {
-      --max-abs-ch: 98ch;
+      --max-abs-ch: 118ch;
+      --lr-font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --lr-font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+      --lr-radius: 12px;
+      --lr-radius-sm: 8px;
+      --lr-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 20px rgba(15, 23, 42, 0.06);
+      --lr-shadow-lg: 0 4px 24px rgba(15, 23, 42, 0.08);
+      --lr-page-bg: #f3f4f8;
+      --lr-surface: #ffffff;
+      --lr-border: rgba(15, 23, 42, 0.08);
+      --lr-accent: #3d5a80;
+      --lr-accent-soft: rgba(61, 90, 128, 0.12);
+      --lr-map-canvas-bg: #e8eaef;
     }
 
-    body {
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body.lr-app {
       padding-top: 4.25rem;
+      font-family: var(--lr-font-sans);
+      background: var(--lr-page-bg);
+      color: #1a1d26;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Abstract box */
+    /* Fill the main grid column; avoid a narrow centered strip beside the sidebar */
+    .lr-content-wrap {
+      width: 100%;
+      max-width: none;
+      margin-inline: 0;
+      padding-inline: clamp(0.5rem, 1.5vw, 1.5rem);
+    }
+
+    .lr-content-wrap--map {
+      max-width: none;
+      margin-inline: 0;
+      padding-inline: 0;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--lr-accent);
+      outline-offset: 2px;
+    }
+
+    /* Abstract box (global + label/manage) */
     .abstract-box pre {
       white-space: pre-wrap;
-      font-family: "Georgia", serif;
+      font-family: var(--lr-font-serif);
       margin: 0;
-      font-size: 1.2rem;
-      line-height: 1.6;
-      max-width: var(--max-abs-ch);
-      margin-left: auto;
-      margin-right: auto;
+      font-size: 1.08rem;
+      line-height: 1.65;
+      max-width: min(var(--max-abs-ch), 100%);
+      width: 100%;
     }
 
     .abstract-box {
-      background: #f9f9f9;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 1rem 1.5rem;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+      background: var(--lr-surface);
+      border: 1px solid var(--lr-border);
+      border-radius: var(--lr-radius);
+      padding: 1.15rem 1.5rem;
+      box-shadow: var(--lr-shadow);
     }
 
     /* Keyword mark: base shape; color comes inline from the filter */
@@ -56,8 +107,9 @@
     @media (min-width: 992px) {
       .layout {
         display: grid;
-        grid-template-columns: 320px 1fr;
-        gap: 1.25rem;
+        grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+        gap: clamp(0.65rem, 1.2vw, 1rem);
+        align-items: start;
       }
 
       .sidebar-sticky {
@@ -67,23 +119,197 @@
         max-height: calc(100vh - 6rem);
         overflow: auto;
       }
+
+      /* Citation map: full width, no keyword sidebar — large graph canvas */
+      .layout.layout-map-full {
+        grid-template-columns: 1fr;
+        gap: 0;
+        min-height: calc(100dvh - 4.25rem);
+        align-content: stretch;
+      }
+
+      .layout.layout-map-full > main {
+        align-self: stretch;
+        min-height: 0;
+      }
+
+      .layout.layout-map-full .sidebar-sticky {
+        display: none !important;
+      }
+    }
+
+    /* Mapa: menos margem lateral do container Bootstrap nesta página */
+    body.lr-app > .container-fluid:has(> .layout.layout-map-full) {
+      --bs-gutter-x: clamp(0.35rem, 1.1vw, 0.65rem);
+    }
+
+    /* Map page: ocupar viewport abaixo da navbar (área do grafo estica com flex) */
+    main.map-main-full {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: calc(100dvh - 4.25rem);
+    }
+
+    main.map-main-full .lr-content-wrap--map {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    main.map-main-full .map-graph-host {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    main.map-main-full #mapMainStage {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    main.map-main-full #network {
+      background-color: transparent;
+    }
+
+    main.map-main-full #network canvas {
+      display: block;
+      max-width: 100%;
+    }
+
+    .map-graph-frame {
+      background: #e8eaef !important;
+      border-color: var(--lr-border) !important;
+    }
+
+    body.lr-app[data-lr-reading="paper"] main.map-main-full .map-graph-frame {
+      background: #e4d9c8 !important;
+      border-color: var(--lr-border) !important;
+    }
+
+    body.dark-mode main.map-main-full .map-graph-frame {
+      background: #12141a !important;
+      border-color: var(--lr-border) !important;
+    }
+
+    .lr-card {
+      border: 1px solid var(--lr-border);
+      border-radius: var(--lr-radius);
+      box-shadow: var(--lr-shadow);
+      background: var(--lr-surface);
+      overflow: hidden;
+    }
+
+    .lr-card .card-body {
+      padding: 1.25rem 1.35rem;
+    }
+
+    .lr-sidebar-card.card {
+      border-radius: var(--lr-radius);
+      border: 1px solid var(--lr-border);
+      box-shadow: var(--lr-shadow);
+      background: var(--lr-surface);
+    }
+
+    .lr-page-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .lr-page-header h2,
+    .lr-page-header h3 {
+      margin-bottom: 0;
+    }
+
+    .lr-stat-line {
+      font-size: 0.9rem;
+      color: #5c6370;
+      margin-bottom: 0.75rem;
+    }
+
+    .lr-stat-line b {
+      color: #2a2f3a;
+      font-weight: 600;
+    }
+
+    .lr-navbar {
+      backdrop-filter: saturate(140%) blur(10px);
+      background: rgba(255, 255, 255, 0.92) !important;
+      border-color: var(--lr-border) !important;
+      padding-block: 0.35rem;
+    }
+
+    .lr-navbar .navbar-brand {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #1a1d26 !important;
+      letter-spacing: -0.03em;
+    }
+
+    .lr-navbar .nav-link {
+      font-weight: 500;
+      font-size: 0.92rem;
+      padding: 0.45rem 0.65rem !important;
+      border-radius: 8px;
+      margin-inline: 0.1rem;
+      color: #3d4454 !important;
+    }
+
+    .lr-navbar .nav-link:hover {
+      background: rgba(61, 90, 128, 0.08);
+      color: var(--lr-accent) !important;
+    }
+
+    .lr-nav-counts {
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid var(--lr-border);
+    }
+
+    .lr-nav-counts .badge-count {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #readingTheme {
+      max-width: 9.5rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      padding-top: 0.25rem;
+      padding-bottom: 0.25rem;
+    }
+
+    .lr-doi-form .form-control {
+      border-radius: 999px 0 0 999px;
+      border-right: 0;
+      min-width: 0;
+    }
+
+    .lr-doi-form .btn {
+      border-radius: 0 999px 999px 0;
     }
 
     .chip {
       display: inline-flex;
       align-items: center;
       gap: .35rem;
-      padding: .2rem .5rem;
+      padding: .25rem .55rem;
       border-radius: 999px;
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
-      font-size: .86rem;
+      background: var(--lr-accent-soft);
+      border: 1px solid rgba(61, 90, 128, 0.22);
+      font-size: .84rem;
+      font-weight: 500;
       margin: .2rem .3rem .2rem 0;
+      color: #2c3e50;
     }
 
     .chip .btn-close {
       transform: scale(.8);
-      opacity: .8;
+      opacity: .75;
     }
 
     .offcanvas-header small {
@@ -94,129 +320,215 @@
       font-weight: 500;
     }
 
-    /* ===== Dark Mode ===== */
-    body.dark-mode {
-      background-color: #121212;
-      color: #fff;
+    /* ===== Paper / sepia reading (warm pastel) ===== */
+    body.lr-app[data-lr-reading="paper"] {
+      --lr-map-canvas-bg: #e4d9c8;
+      --lr-page-bg: #ebe4d4;
+      --lr-surface: #fffbf2;
+      --lr-border: rgba(88, 64, 38, 0.16);
+      --lr-shadow: 0 1px 2px rgba(60, 45, 28, 0.06), 0 4px 18px rgba(60, 45, 28, 0.07);
+      --lr-shadow-lg: 0 4px 22px rgba(60, 45, 28, 0.08);
+      --lr-accent: #6b5344;
+      --lr-accent-soft: rgba(122, 92, 56, 0.14);
+      background-color: var(--lr-page-bg);
+      color: #2a2419;
+      --bs-body-bg: #ebe4d4;
+      --bs-body-color: #2a2419;
+      --bs-border-color: rgba(88, 64, 38, 0.2);
     }
 
-    /* === Dark mode override for abstracts (global, high priority) === */
+    body.lr-app[data-lr-reading="paper"] .lr-navbar {
+      background: rgba(255, 251, 242, 0.95) !important;
+      border-color: var(--lr-border) !important;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-navbar .navbar-brand {
+      color: #3d3228 !important;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-navbar .nav-link {
+      color: #4a4036 !important;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-navbar .nav-link:hover {
+      background: rgba(122, 92, 56, 0.12);
+      color: #2a2419 !important;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-nav-counts {
+      background: rgba(255, 248, 230, 0.9);
+      border-color: var(--lr-border);
+      color: #4a4036;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-stat-line {
+      color: #5c5348;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-stat-line b {
+      color: #2f2820;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-kicker {
+      color: #6b5f52;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .chip {
+      background: rgba(122, 92, 56, 0.12);
+      border-color: rgba(107, 83, 68, 0.28);
+      color: #3d3228;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .lr-table-wrap thead th {
+      color: #5c5348;
+      background: rgba(122, 92, 56, 0.08);
+    }
+
+    body.lr-app[data-lr-reading="paper"] .abstract-box pre {
+      color: #2a2419;
+    }
+
+    body.lr-app[data-lr-reading="paper"] a:not(.btn):not(.nav-link) {
+      color: #5a4a8a;
+    }
+
+    body.lr-app[data-lr-reading="paper"] a:not(.btn):not(.nav-link):hover {
+      color: #3d2f6b;
+    }
+
+    /* ===== Dark Mode (keeps Bootstrap button semantics) ===== */
+    body.dark-mode.lr-app {
+      --lr-map-canvas-bg: #12141a;
+      --lr-page-bg: #0c0d12;
+      --lr-surface: #16181f;
+      --lr-border: rgba(255, 255, 255, 0.08);
+      --lr-accent-soft: rgba(130, 170, 255, 0.12);
+      background-color: var(--lr-page-bg);
+      color: #e8eaef;
+      --bs-body-bg: #0c0d12;
+      --bs-body-color: #e8eaef;
+      --bs-border-color: rgba(255, 255, 255, 0.1);
+    }
+
     body.dark-mode .abstract-box,
     body.dark-mode .abstract-box.abstract-snippet {
-      background: #1e1e1e !important;
-      /* ensure override wins */
-      border-color: #333 !important;
+      background: var(--lr-surface) !important;
+      border-color: var(--lr-border) !important;
     }
 
-    /* keep text readable in dark mode */
     body.dark-mode .abstract-box pre {
-      color: #eaeaea !important;
+      color: #eceef3 !important;
     }
 
-
-
-
-
-    body.dark-mode *:not(a):not(mark):not(.kw) {
-      color: #fff !important;
+    body.dark-mode a:not(.btn):not(.nav-link) {
+      color: #9db8ff;
     }
 
-    body.dark-mode a {
-      color: #82aaff !important;
+    body.dark-mode a:not(.btn):not(.nav-link):hover {
+      color: #c5d4ff;
     }
 
-    /* Navbar: keep toggler visible in dark mode */
     .navbar {
-      transition: background-color .2s ease;
+      transition: background-color .2s ease, border-color .2s ease;
     }
 
-    body.dark-mode .navbar {
-      background-color: #1f1f1f !important;
+    body.dark-mode .lr-navbar {
+      background: rgba(22, 24, 31, 0.94) !important;
+      border-color: var(--lr-border) !important;
     }
 
-    body.dark-mode .navbar a.nav-link,
-    body.dark-mode .navbar .navbar-brand {
+    body.dark-mode .lr-navbar .navbar-brand {
+      color: #f0f2f7 !important;
+    }
+
+    body.dark-mode .lr-navbar .nav-link {
+      color: #c4cad6 !important;
+    }
+
+    body.dark-mode .lr-navbar .nav-link:hover {
+      background: rgba(130, 170, 255, 0.12);
       color: #fff !important;
     }
 
-    body.dark-mode .navbar .navbar-toggler {
-      border-color: #888;
+    body.dark-mode .lr-navbar .navbar-toggler {
+      border-color: rgba(255, 255, 255, 0.25);
     }
 
-    body.dark-mode .navbar .navbar-toggler-icon {
+    body.dark-mode .lr-navbar .navbar-toggler-icon {
       filter: invert(1) grayscale(100%) brightness(200%);
     }
 
-    /* Cards */
-    body.dark-mode .card {
-      background-color: #1e1e1e;
-      border-color: #333;
+    body.dark-mode .lr-nav-counts {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--lr-border);
     }
 
-    /* Chips */
+    body.dark-mode .lr-stat-line {
+      color: #9aa3b2;
+    }
+
+    body.dark-mode .lr-stat-line b {
+      color: #eef0f4;
+    }
+
+    body.dark-mode .card,
+    body.dark-mode .lr-card,
+    body.dark-mode .lr-sidebar-card.card {
+      background-color: var(--lr-surface);
+      border-color: var(--lr-border);
+    }
+
     body.dark-mode .chip {
-      background: #333;
-      border-color: #555;
+      background: rgba(130, 170, 255, 0.1);
+      border-color: rgba(130, 170, 255, 0.28);
+      color: #e4e9f4;
     }
 
-    /* Forms */
     body.dark-mode .form-control,
     body.dark-mode .form-control-sm,
     body.dark-mode .form-select {
-      background-color: #2a2a2a;
-      border-color: #555;
+      background-color: #1f222b;
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #f0f2f7;
+    }
+
+    body.dark-mode .form-control:focus,
+    body.dark-mode .form-select:focus {
+      background-color: #23262f;
+      border-color: rgba(130, 170, 255, 0.55);
+      box-shadow: 0 0 0 0.2rem rgba(130, 170, 255, 0.2);
       color: #fff;
     }
 
     body.dark-mode ::placeholder {
-      color: #bbb;
+      color: #8b93a3;
     }
 
-    /* Buttons */
-    body.dark-mode .btn {
-      background-color: #333;
-      color: #fff;
-    }
-
-    body.dark-mode .btn-outline-danger {
-      color: #ff6b6b;
-      border-color: #ff6b6b;
-    }
-
-    /* Alerts */
     body.dark-mode .alert {
-      background-color: #2a2a2a;
-      border-color: #444;
+      border-color: rgba(255, 255, 255, 0.1);
     }
 
-    /* Keep highlight readable in dark mode – color comes inline; only fallback here */
     body.dark-mode mark.kw {
-      box-shadow: 0 0 0 1px rgba(0, 0, 0, .15) inset;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, .25) inset;
     }
 
-    /* Close button in dark mode */
     body.dark-mode .btn-close {
       filter: invert(1) grayscale(100%) brightness(200%);
     }
 
-    /* Offcanvas */
     body.dark-mode .offcanvas {
-      background-color: #1e1e1e;
+      background-color: var(--lr-surface);
+      color: #e8eaef;
     }
 
-    /* Tables in dark mode */
-    body.dark-mode table,
-    body.dark-mode thead,
-    body.dark-mode tbody,
-    body.dark-mode th,
-    body.dark-mode td {
-      color: #fff !important;
-      background-color: transparent !important;
+    body.dark-mode .table {
+      --bs-table-bg: transparent;
+      --bs-table-color: #e8eaef;
     }
 
     body.dark-mode .table th,
     body.dark-mode .table td {
-      border-color: #444 !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
     }
 
     body.dark-mode .table-hover tbody tr:hover {
@@ -226,7 +538,214 @@
     body.dark-mode .muted,
     body.dark-mode .text-muted,
     body.dark-mode .small {
-      color: #ccc !important;
+      color: #9aa3b2 !important;
+    }
+
+    body.dark-mode .progress:not(.lr-progress) {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    body.dark-mode .offcanvas code {
+      color: #dbe3ff;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+    }
+
+    body.dark-mode .border-bottom {
+      border-color: var(--lr-border) !important;
+    }
+
+    .min-h-0 {
+      min-height: 0;
+    }
+
+    .lr-table-wrap {
+      border-radius: var(--lr-radius);
+      border: 1px solid var(--lr-border);
+      background: var(--lr-surface);
+      box-shadow: var(--lr-shadow);
+      overflow: hidden;
+    }
+
+    .lr-table-wrap .table {
+      margin-bottom: 0;
+    }
+
+    .lr-table-wrap thead th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      color: #5c6370;
+      border-bottom-width: 1px;
+      background: rgba(15, 23, 42, 0.03);
+    }
+
+    body.dark-mode .lr-table-wrap thead th {
+      color: #9aa3b2;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .lr-progress-block {
+      padding: 0.85rem 1.05rem;
+      border-radius: var(--lr-radius);
+      border: 1px solid var(--lr-border);
+      background: var(--lr-surface);
+      box-shadow: var(--lr-shadow);
+    }
+
+    .lr-progress-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.35rem 1rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .lr-progress-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #5c6370;
+    }
+
+    .lr-progress-meta {
+      font-size: 0.8125rem;
+      line-height: 1.35;
+      color: #5c6370;
+    }
+
+    .lr-progress-pct {
+      font-weight: 600;
+      color: #1a1d26;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lr-progress-sep {
+      color: rgba(15, 23, 42, 0.35);
+      font-weight: 400;
+    }
+
+    .lr-progress-remain {
+      color: #6c7588;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .lr-progress {
+      height: 0.7rem;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.07);
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.07);
+    }
+
+    .lr-progress-bar {
+      border-radius: 999px;
+      transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 1px 2px rgba(15, 23, 42, 0.12);
+    }
+
+    .lr-progress-bar--low {
+      background: linear-gradient(180deg, #7b8494 0%, #5c6370 48%, #4b5563 100%);
+    }
+
+    .lr-progress-bar--mid {
+      background: linear-gradient(180deg, #f0a637 0%, #d97706 45%, #b45309 100%);
+    }
+
+    .lr-progress-bar--high {
+      background: linear-gradient(180deg, #5eb8e8 0%, #2c9ccb 45%, #1d7aa3 100%);
+    }
+
+    .lr-progress-bar--done {
+      background: linear-gradient(180deg, #5ecf8f 0%, #22a06b 45%, #17805a 100%);
+    }
+
+    body[data-lr-reading="paper"] .lr-progress-label {
+      color: #5c5348;
+    }
+
+    body[data-lr-reading="paper"] .lr-progress-meta {
+      color: #6b5f52;
+    }
+
+    body[data-lr-reading="paper"] .lr-progress-pct {
+      color: #2d2419;
+    }
+
+    body[data-lr-reading="paper"] .lr-progress-remain {
+      color: #6b5f52;
+    }
+
+    body[data-lr-reading="paper"] .lr-progress {
+      background: rgba(122, 92, 56, 0.12);
+      box-shadow: inset 0 1px 2px rgba(122, 92, 56, 0.12);
+    }
+
+    body.dark-mode .lr-progress-block {
+      background: var(--lr-surface);
+      border-color: var(--lr-border);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    }
+
+    body.dark-mode .lr-progress-label {
+      color: #9aa3b2;
+    }
+
+    body.dark-mode .lr-progress-meta {
+      color: #9aa3b2;
+    }
+
+    body.dark-mode .lr-progress-pct {
+      color: #e8eaef;
+    }
+
+    body.dark-mode .lr-progress-remain {
+      color: #9aa3b2;
+    }
+
+    body.dark-mode .lr-progress {
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    body.dark-mode .lr-progress-bar--low {
+      background: linear-gradient(180deg, #8b93a3 0%, #6b7280 50%, #525a66 100%);
+    }
+
+    body.dark-mode .lr-progress-bar--mid {
+      background: linear-gradient(180deg, #fbbf5a 0%, #f59e0b 50%, #c97709 100%);
+    }
+
+    body.dark-mode .lr-progress-bar--high {
+      background: linear-gradient(180deg, #7dd3fc 0%, #38bdf8 50%, #0ea5e9 100%);
+    }
+
+    body.dark-mode .lr-progress-bar--done {
+      background: linear-gradient(180deg, #6ee7b7 0%, #34d399 50%, #059669 100%);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lr-progress-bar {
+        transition: none;
+      }
+    }
+
+    .lr-kicker {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #6c7588;
+    }
+
+    body.dark-mode .lr-kicker {
+      color: #8b93a3;
     }
 
     /* Notes input: taller + resizable */
@@ -246,21 +765,28 @@
   </style>
 </head>
 
-<body>
-  <!-- Add navbar-light for correct toggler base icon; dark-mode CSS adjusts dynamically -->
-  <nav class="navbar navbar-expand-lg border-bottom fixed-top bg-light navbar-light">
-    <div class="container-fluid">
+<body class="lr-app" data-lr-reading="light">
+  <nav class="navbar navbar-expand-lg border-bottom fixed-top navbar-light lr-navbar">
+    <div class="container-fluid gap-2">
       <a class="navbar-brand" href="{{ url_for('home') }}">LitReview</a>
 
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"
+      <button class="navbar-toggler border-0 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"
         aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <button id="darkModeToggle" class="btn btn-outline-secondary ms-2" title="Toggle dark mode">🌙</button>
+      <div class="d-flex align-items-center gap-1 order-lg-5 ms-lg-2">
+        <label for="readingTheme" class="d-none d-md-inline small text-muted mb-0 text-nowrap">Leitura</label>
+        <select id="readingTheme" class="form-select form-select-sm" title="Modo de leitura"
+          aria-label="Modo de leitura: branco, papel ou escuro">
+          <option value="light">Branco</option>
+          <option value="paper">Papel</option>
+          <option value="dark">Escuro</option>
+        </select>
+      </div>
 
-      <div class="collapse navbar-collapse" id="topNav">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+      <div class="collapse navbar-collapse order-lg-2" id="topNav">
+        <ul class="navbar-nav me-lg-auto mb-2 mb-lg-0 align-items-lg-center">
           {% if active_dataset_id %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('label_next', dataset_id=active_dataset_id) }}">Label</a>
@@ -271,32 +797,33 @@
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('highlights', dataset_id=active_dataset_id) }}">Highlights</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('citation_map_view', dataset_id=active_dataset_id) }}">Map</a>
+          </li>
           {% endif %}
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('upload') }}">Datasets</a>
           </li>
-
-          <form class="d-flex ms-auto my-2 my-lg-0" role="search" action="{{ url_for('search_doi') }}" method="get"
-            style="max-width: 360px;">
-            <input class="form-control form-control-sm me-2" type="search" name="doi" placeholder="Find article by DOI…"
-              aria-label="DOI" value="{{ request.args.get('doi','') }}">
-            <button class="btn btn-sm btn-outline-primary" type="submit">Find</button>
-          </form>
-
         </ul>
 
         {% if active_dataset_id %}
-        <div class="d-none d-lg-flex me-3 small text-nowrap">
-          <span class="me-3">Total: <span class="badge-count">{{ nav_counts.total }}</span></span>
-          <span class="me-3 text-success">Yes: <span class="badge-count">{{ nav_counts.yes }}</span></span>
-          <span class="me-3 text-danger">No: <span class="badge-count">{{ nav_counts.no }}</span></span>
-          <span class="text-secondary">Unlabeled: <span class="badge-count">{{ nav_counts.unlabeled }}</span></span>
+        <div class="lr-nav-counts d-none d-lg-flex me-lg-3 text-nowrap align-items-center gap-3">
+          <span>Total <span class="badge-count">{{ nav_counts.total }}</span></span>
+          <span class="text-success">Yes <span class="badge-count">{{ nav_counts.yes }}</span></span>
+          <span class="text-danger">No <span class="badge-count">{{ nav_counts.no }}</span></span>
+          <span class="text-secondary">Pending <span class="badge-count">{{ nav_counts.unlabeled }}</span></span>
         </div>
         {% endif %}
 
-        <!-- Open sidebar on small screens -->
-        <button class="btn btn-outline-primary d-lg-none" type="button" data-bs-toggle="offcanvas"
-          data-bs-target="#keywordsDrawer">
+        <form class="d-flex lr-doi-form my-2 my-lg-0 ms-lg-auto" role="search" action="{{ url_for('search_doi') }}"
+          method="get" style="max-width: min(100%, 380px); width: 100%;">
+          <input class="form-control form-control-sm" type="search" name="doi" placeholder="Find by DOI…"
+            aria-label="DOI" value="{{ request.args.get('doi','') }}">
+          <button class="btn btn-sm btn-primary px-3" type="submit">Find</button>
+        </form>
+
+        <button class="btn btn-outline-primary btn-sm d-lg-none mt-2 mt-lg-0 ms-lg-2" type="button"
+          data-bs-toggle="offcanvas" data-bs-target="#keywordsDrawer">
           Keywords
         </button>
       </div>
@@ -304,10 +831,10 @@
   </nav>
 
   <div class="container-fluid">
-    <div class="layout">
+    <div class="layout{% block layout_class %}{% endblock %}">
       <!-- Keywords sidebar (desktop) -->
       <aside class="d-none d-lg-block sidebar-sticky" aria-label="Highlight keywords">
-        <div class="card">
+        <div class="card lr-sidebar-card">
           <div class="card-body">
             <h6 class="card-title mb-1">Highlight keywords</h6>
             <div class="text-muted small mb-2">Words to emphasize in abstracts (per dataset).</div>
@@ -353,22 +880,26 @@
       </aside>
 
       <!-- Main content -->
-      <main class="py-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        <div class="mt-2">
-          {% for category, message in messages %}
-          <div class="alert alert-{{ 'secondary' if category=='message' else category }} alert-dismissible fade show"
-            role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      <main class="{% block main_elem_class %}py-3 d-flex flex-column{% endblock %}">
+        <div class="{% block lr_wrap_class %}lr-content-wrap flex-grow-1 d-flex flex-column{% endblock %}">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+          <div class="mb-2">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'secondary' if category=='message' else category }} alert-dismissible fade show shadow-sm border-0"
+              role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
-        </div>
-        {% endif %}
-        {% endwith %}
+          {% endif %}
+          {% endwith %}
 
-        {% block content %}{% endblock %}
+          <div class="{% block lr_inner_class %}flex-grow-1{% endblock %}">
+            {% block content %}{% endblock %}
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -423,22 +954,37 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Persisted dark mode + Bootstrap 5.3 data-bs-theme sync
-    const toggleBtn = document.getElementById('darkModeToggle');
-    const root = document.documentElement;
-    const stored = localStorage.getItem('darkMode') === 'true';
-    if (stored) {
-      document.body.classList.add('dark-mode');
-      root.setAttribute('data-bs-theme', 'dark');
-    } else {
-      root.setAttribute('data-bs-theme', 'light');
-    }
-    toggleBtn.addEventListener('click', () => {
-      const isDark = !document.body.classList.contains('dark-mode');
-      document.body.classList.toggle('dark-mode', isDark);
-      root.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
-      localStorage.setItem('darkMode', String(isDark));
-    });
+    (function () {
+      const KEY = 'lrReadingTheme';
+      const LEGACY_DARK = 'darkMode';
+      const root = document.documentElement;
+      const sel = document.getElementById('readingTheme');
+      const VALID = ['light', 'paper', 'dark'];
+
+      function applyReadingTheme(mode) {
+        if (!VALID.includes(mode)) mode = 'light';
+        document.body.setAttribute('data-lr-reading', mode);
+        document.body.classList.toggle('dark-mode', mode === 'dark');
+        root.setAttribute('data-bs-theme', mode === 'dark' ? 'dark' : 'light');
+        localStorage.setItem(KEY, mode);
+        if (sel) sel.value = mode;
+        document.dispatchEvent(new CustomEvent('lr-reading-theme', { detail: { mode: mode } }));
+      }
+
+      let mode = localStorage.getItem(KEY);
+      if (!mode && localStorage.getItem(LEGACY_DARK) === 'true') {
+        mode = 'dark';
+        localStorage.removeItem(LEGACY_DARK);
+      }
+      if (!mode) mode = 'light';
+      applyReadingTheme(mode);
+
+      if (sel) {
+        sel.addEventListener('change', function () {
+          applyReadingTheme(sel.value);
+        });
+      }
+    })();
   </script>
 </body>
 

@@ -4,9 +4,12 @@
   .result-wrap .abstract-box { font-size: 1rem; line-height: 1.6; }
 </style>
 
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <h3 class="mb-0">Search by DOI</h3>
-  <div class="d-flex align-items-center gap-2">
+<div class="lr-page-header align-items-center">
+  <div>
+    <h2 class="h3 mb-1">Search by DOI</h2>
+    <p class="text-muted small mb-0">Locate one record in the active dataset by identifier.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
     {% if dataset_id %}
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('manage', dataset_id=dataset_id) }}">Manage</a>
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Label</a>
@@ -14,27 +17,28 @@
   </div>
 </div>
 
-<form class="row g-2 mb-3" action="{{ url_for('search_doi') }}" method="get">
+<form class="row g-2 align-items-end mb-3" action="{{ url_for('search_doi') }}" method="get">
   <div class="col-sm-8 col-md-6 col-lg-5">
-    <input class="form-control" type="text" name="doi" placeholder="Paste DOI or DOI URL"
+    <label class="form-label small fw-medium mb-1">DOI or URL</label>
+    <input class="form-control" type="text" name="doi" placeholder="10.xxxx/… or https://doi.org/…"
            value="{{ query_doi or '' }}">
   </div>
   <div class="col-auto">
-    <button class="btn btn-primary" type="submit">Search</button>
+    <button class="btn btn-primary px-4 fw-semibold" type="submit">Search</button>
   </div>
 </form>
 
-<div class="mb-2 muted">
-  Dataset {{ dataset_id }} &middot;
-  Yes: <b>{{ yes }}</b> &nbsp;
-  No: <b>{{ no }}</b> &nbsp;
-  Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
-  Total: <b>{{ total }}</b>
+<div class="lr-stat-line">
+  Dataset <span class="mono">{{ dataset_id }}</span> ·
+  Yes <b>{{ yes }}</b> ·
+  No <b>{{ no }}</b> ·
+  Unlabeled <b>{{ unlabeled }}</b> ·
+  Total <b>{{ total }}</b>
 </div>
 
 <div class="result-wrap">
   {% if article %}
-  <div class="card">
+  <div class="card lr-card">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-start gap-2">
         <h5 class="mb-1">{{ article.title or '[No title]' }}</h5>

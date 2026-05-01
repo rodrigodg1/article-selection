@@ -172,6 +172,21 @@
         border-color: #555;
     }
 
+    body[data-lr-reading="paper"] .inline-cat-manager {
+        background: rgba(122, 92, 56, 0.06);
+        border-color: rgba(88, 64, 38, 0.16);
+    }
+
+    body[data-lr-reading="paper"] .inline-cat-manager .category-chip {
+        background: #f5ead8;
+        border-color: rgba(107, 83, 68, 0.35);
+        color: #3d3228;
+    }
+
+    body[data-lr-reading="paper"] .cat-manage .row-item {
+        border-color: rgba(88, 64, 38, 0.14);
+    }
+
     .inline-cat-manager .category-chip form {
         display: inline;
     }
@@ -340,33 +355,35 @@
     }
 </style>
 
-<div class="d-flex justify-content-between align-items-center mb-2">
-    <h3 class="mb-0">Article Management</h3>
-    <div class="d-flex align-items-center gap-2">
+<div class="lr-page-header align-items-center">
+    <div>
+        <h2 class="h3 mb-1">Manage</h2>
+        <p class="text-muted small mb-0">Filter, relabel, and edit categories in bulk.</p>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
         <button id="toggleFiltersBtn" class="btn btn-outline-secondary btn-sm" type="button"
             title="Hide/Show filters (H)">
             Hide filters
         </button>
-        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Back to
-            labeling</a>
-        <a class="btn btn-outline-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('label_next', dataset_id=dataset_id) }}">Back to labeling</a>
+        <a class="btn btn-success btn-sm" href="{{ url_for('export', dataset_id=dataset_id) }}">Export CSV</a>
     </div>
 </div>
 
-<div class="mb-2 muted">
-    Dataset {{ dataset_id }} &middot;
-    Yes: <b>{{ yes }}</b> &nbsp;
-    No: <b>{{ no }}</b> &nbsp;
-    Unlabeled: <b>{{ unlabeled }}</b> &nbsp;
-    Total: <b>{{ total }}</b>
+<div class="lr-stat-line">
+    Dataset <span class="mono">{{ dataset_id }}</span> ·
+    Yes <b>{{ yes }}</b> ·
+    No <b>{{ no }}</b> ·
+    Unlabeled <b>{{ unlabeled }}</b> ·
+    Total <b>{{ total }}</b>
 </div>
 
 <div id="manageLayout" class="row g-3">
     <!-- Sidebar: Filters + Manage categories -->
     <div id="filtersCol" class="filters-col col-12 col-lg-3">
-        <div class="card cat-sidebar">
+        <div class="card cat-sidebar lr-sidebar-card">
             <div class="card-body">
-                <h6 class="card-title mb-2">Filter by status</h6>
+                <div class="lr-kicker mb-2">Status</div>
                 <div class="d-flex flex-wrap gap-2 mb-2">
                     <a class="btn btn-sm btn-{{ 'primary' if status=='all' else 'outline-primary' }}"
                         href="{{ url_for('manage', dataset_id=dataset_id, status='all', hide=hide, cat=request.args.getlist('cat'), hl=('1' if hl else None)) }}">All</a>
@@ -408,7 +425,7 @@
                     {% endif %}
                 </div>
 
-                <h6 class="card-title mb-2">Filter by categories</h6>
+                <div class="lr-kicker mb-2">Categories</div>
                 <form method="get" class="cat-list">
                     <input type="hidden" name="status" value="{{ status }}">
                     {% if hide %}<input type="hidden" name="hide" value="{{ hide }}">{% endif %}
@@ -435,7 +452,7 @@
 
                 <hr class="my-3">
 
-                <h6 class="card-title mb-2">Manage categories</h6>
+                <div class="lr-kicker mb-2">Rename / delete</div>
                 <div class="cat-manage">
                     {% for c in categories %}
                     <div class="row-item" data-cat-id="{{ c.id }}">
@@ -475,12 +492,14 @@
 
     <!-- Main: unified review + category management -->
     <div id="contentCol" class="content-col col-12 col-lg-9">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="card-title mb-2">Articles{% if hl %} — highlights only{% endif %}</h6>
+        <div class="card lr-card">
+            <div class="card-body p-0 p-md-3">
+                <div class="px-3 pt-3 pb-2 border-bottom bg-body-tertiary bg-opacity-50">
+                    <h6 class="mb-0 fw-semibold">Articles{% if hl %} <span class="text-muted fw-normal">· highlights only</span>{% endif %}</h6>
+                </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle review-table">
+                <div class="table-responsive px-2 px-md-3 pb-3">
+                    <table class="table table-hover align-middle review-table mb-0">
                         <thead>
                             <tr>
                                 <th>ID</th>

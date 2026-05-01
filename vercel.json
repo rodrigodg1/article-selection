@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [{ "src": "/(.*)", "dest": "/api/index" }],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "memory": 2048
+    }
+  }
+}

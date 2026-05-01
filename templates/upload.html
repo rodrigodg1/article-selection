@@ -1,93 +1,85 @@
 {% extends "base.html" %}
 {% block content %}
-<h3>Upload CSV</h3>
-
-<form class="mb-4" method="post" enctype="multipart/form-data">
-  <div class="row g-2">
-    <div class="col-sm-4">
-      <input class="form-control" type="text" name="name" placeholder="Dataset name (optional)">
-    </div>
-    <div class="col-sm-6">
-      <input class="form-control" type="file" name="file" accept=".csv" required>
-    </div>
-    <div class="col-sm-2">
-      <button class="btn btn-primary w-100" type="submit">Upload</button>
-    </div>
+<div class="lr-page-header">
+  <div>
+    <h2 class="h3 mb-1">Datasets</h2>
+    <p class="text-muted small mb-0">Import a CSV export from your reference manager or database, then screen records in <strong>Label</strong>.</p>
   </div>
+</div>
 
-  <!-- NEW: search string textarea -->
-  <div class="row g-2 mt-2">
-    <div class="col-12">
-      <textarea class="form-control" name="search_query" rows="2"
-        placeholder="Search string used to build this dataset (e.g., database query, keywords, boolean expression)"></textarea>
-      <div class="form-text">Saved with the dataset for provenance and reproducibility.</div>
-    </div>
+<div class="card lr-card mb-4">
+  <div class="card-body">
+    <div class="lr-kicker mb-3">New dataset</div>
+    <form method="post" enctype="multipart/form-data">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label small fw-medium">Name <span class="text-muted fw-normal">(optional)</span></label>
+          <input class="form-control" type="text" name="name" placeholder="e.g. WoS — LLM safety 2024">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label small fw-medium">CSV file</label>
+          <input class="form-control" type="file" name="file" accept=".csv" required>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button class="btn btn-primary w-100 py-2 fw-semibold" type="submit">Upload</button>
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-medium">Search string <span class="text-muted fw-normal">(provenance)</span></label>
+          <textarea class="form-control" name="search_query" rows="2"
+            placeholder="Database query, keywords, or boolean string used to build this export"></textarea>
+          <div class="form-text">Stored with the dataset and included when you export results.</div>
+        </div>
+      </div>
+    </form>
   </div>
-</form>
+</div>
 
-
-
-
-<h5>Existing datasets</h5>
-<table class="table table-sm align-middle">
-  <thead>
-    <tr>
-      <th style="width: 80px;">ID</th>
-      <th>Name</th>
-      <th style="width: 180px;">Created</th>
-      <th>Search string</th>
-      <th style="width: 240px;">Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for ds in datasets %}
-    <tr>
-      <td class="mono">{{ ds.id }}</td>
-      <td>{{ ds.name }}</td>
-      <td class="text-muted">{{ ds.created_at|local_dt }}</td>
-      <td>
-        <!-- Form to update search string -->
-        <form method="post" action="{{ url_for('update_search_string', dataset_id=ds.id) }}" class="d-flex">
-              <textarea name="search_query" class="form-control form-control-sm me-1 flex-grow-1" rows="3"
-                 placeholder="Enter search string">{{ ds.search_query or '' }}</textarea>
-          <button class="btn btn-sm btn-outline-primary" type="submit">Update</button>
-        </form>
-      </td>
-      <td>
-        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('label_next', dataset_id=ds.id) }}">Open</a>
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manage', dataset_id=ds.id) }}">Review</a>
-        <form method="post" action="{{ url_for('delete_dataset', dataset_id=ds.id) }}" style="display:inline"
-          onsubmit="return confirm('Delete this dataset and all its articles?');">
-          <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% else %}
-    <tr>
-      <td colspan="5" class="text-muted">No datasets yet.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+<div class="lr-kicker mb-2">Existing datasets</div>
+<div class="lr-table-wrap">
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle mb-0">
+      <thead>
+        <tr>
+          <th style="width: 72px;">ID</th>
+          <th>Name</th>
+          <th style="width: 168px;">Created</th>
+          <th>Search string</th>
+          <th style="width: 260px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ds in datasets %}
+        <tr>
+          <td class="mono text-secondary">{{ ds.id }}</td>
+          <td class="fw-medium">{{ ds.name }}</td>
+          <td class="text-muted small">{{ ds.created_at|local_dt }}</td>
+          <td>
+            <form method="post" action="{{ url_for('update_search_string', dataset_id=ds.id) }}" class="d-flex flex-column flex-md-row gap-2 align-items-stretch">
+              <textarea name="search_query" class="form-control form-control-sm flex-grow-1" rows="2"
+                placeholder="Search string">{{ ds.search_query or '' }}</textarea>
+              <button class="btn btn-sm btn-outline-primary align-self-md-center text-nowrap" type="submit">Save</button>
+            </form>
+          </td>
+          <td>
+            <div class="d-flex flex-wrap gap-1">
+              <a class="btn btn-sm btn-primary" href="{{ url_for('label_next', dataset_id=ds.id) }}">Open</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('manage', dataset_id=ds.id) }}">Review</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('citation_map_view', dataset_id=ds.id) }}"
+                title="Citation &amp; similarity graph">Map</a>
+              <form method="post" action="{{ url_for('delete_dataset', dataset_id=ds.id) }}" class="d-inline"
+                onsubmit="return confirm('Delete this dataset and all its articles?');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="text-muted py-4 text-center">No datasets yet. Upload a CSV above.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

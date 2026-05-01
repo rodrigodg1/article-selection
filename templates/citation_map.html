@@ -1,0 +1,1052 @@
+{% extends "base.html" %}
+{% block layout_class %} layout-map-full{% endblock %}
+{% block main_elem_class %}map-main-full d-flex flex-column pt-2 pb-0 px-0{% endblock %}
+{% block lr_wrap_class %}lr-content-wrap lr-content-wrap--map flex-fill{% endblock %}
+{% block lr_inner_class %}flex-grow-1 flex-fill min-h-0 d-flex flex-column{% endblock %}
+{% block content %}
+<style>
+  .map-legend .legend-line { width: 36px; height: 0; flex-shrink: 0; margin-top: 0.4rem; }
+  .map-legend .legend-line--cite { border-top: 3px solid #0d6efd; }
+  .map-legend .legend-line--sim { border-top: 3px dashed #6c757d; }
+  #mapArticleOffcanvasBody pre.abstract-preview {
+    font-size: 0.88rem;
+    line-height: 1.55;
+    max-height: 45vh;
+    overflow: auto;
+    white-space: pre-wrap;
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+  }
+  body.dark-mode #mapArticleOffcanvasBody pre.abstract-preview {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  #mapArticleOffcanvasBody .map-sim-neighbors {
+    font-size: 0.88rem;
+  }
+  #mapArticleOffcanvasBody .map-sim-neighbor-link {
+    text-decoration: none;
+    color: inherit;
+    border-radius: 6px;
+    padding: 0.35rem 0.45rem;
+    margin: 0 -0.45rem;
+    display: block;
+  }
+  #mapArticleOffcanvasBody .map-sim-neighbor-link:hover {
+    background: rgba(13, 110, 253, 0.08);
+  }
+  body.dark-mode #mapArticleOffcanvasBody .map-sim-neighbor-link:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .map-panel-chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-size: 0.7rem;
+    line-height: 1;
+    opacity: 0.85;
+  }
+  #btnMapPanelToggle[aria-expanded="true"] .map-panel-chevron {
+    transform: rotate(90deg);
+  }
+  .map-page-intro h2 {
+    letter-spacing: -0.02em;
+  }
+  .map-legend-box {
+    line-height: 1.45;
+  }
+  .map-legend-box .map-legend-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #5c6370;
+    margin-bottom: 0.35rem;
+  }
+  body.dark-mode .map-legend-box .map-legend-title {
+    color: #9aa3b2;
+  }
+  body[data-lr-reading="paper"] .map-legend-box .map-legend-title {
+    color: #6b5f52;
+  }
+  .map-legend-box ul {
+    padding-left: 1.1rem;
+    margin-bottom: 0;
+  }
+  .map-legend-box li {
+    margin-bottom: 0.35rem;
+  }
+  .map-legend-box li:last-child {
+    margin-bottom: 0;
+  }
+  .map-ranking-wrap {
+    min-height: 0;
+  }
+  .map-ranking-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bs-body-bg, #fff);
+    box-shadow: 0 1px 0 var(--lr-border, rgba(0,0,0,.08));
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: #5c6370;
+    white-space: nowrap;
+  }
+  body.dark-mode .map-ranking-table thead th {
+    background: #0c0d12;
+    color: #9aa3b2;
+  }
+  body[data-lr-reading="paper"] .map-ranking-table thead th {
+    background: var(--bs-body-bg, #fffbf2);
+    color: #5c5348;
+  }
+  body[data-lr-reading="paper"] #mapArticleOffcanvasBody pre.abstract-preview {
+    background: rgba(122, 92, 56, 0.08);
+  }
+  body[data-lr-reading="paper"] #mapArticleOffcanvasBody .map-sim-neighbor-link:hover {
+    background: rgba(122, 92, 56, 0.12);
+  }
+  .map-ranking-table tbody tr {
+    cursor: pointer;
+  }
+
+  /* Garantir que o div do vis não colapse (tema papel / flex) */
+  main.map-main-full #network.vis-network {
+    min-height: 200px;
+  }
+
+  /* Cadeia flex: o frame do grafo ocupa o espaço livre até à viewport */
+  main.map-main-full #mapViewGraph,
+  main.map-main-full #mapViewRanking,
+  main.map-main-full .map-graph-host {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  main.map-main-full .map-graph-frame {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: max(280px, calc(100dvh - 14rem));
+  }
+</style>
+
+<div class="flex-shrink-0 px-2 px-sm-3 px-lg-3 map-page-intro">
+  <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-2">
+    <div class="flex-grow-1" style="min-width: min(100%, 280px);">
+      <h2 class="h4 fw-semibold mb-1">Mapa de citações e semelhança</h2>
+      <p class="text-muted small mb-2 mb-lg-1 lh-sm">
+        Conjunto <span class="mono fw-medium text-body">{{ dataset_id }}</span> —
+        explore ligações no <strong>grafo</strong> ou veja uma <strong>lista classificada</strong> por maior semelhança de texto (título+resumo).
+      </p>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Vista principal">
+        <input type="radio" class="btn-check" name="mapMainView" id="viewGraph" autocomplete="off" checked>
+        <label class="btn btn-outline-primary" for="viewGraph">Grafo</label>
+        <input type="radio" class="btn-check" name="mapMainView" id="viewRanking" autocomplete="off">
+        <label class="btn btn-outline-primary" for="viewRanking">Ranking</label>
+      </div>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 flex-shrink-0"
+      id="btnMapPanelToggle" data-bs-toggle="collapse" data-bs-target="#mapCollapsible"
+      aria-expanded="false" aria-controls="mapCollapsible">
+      <span class="map-panel-chevron" aria-hidden="true">▸</span>
+      <span id="mapPanelToggleLabel">Legenda e opções</span>
+    </button>
+  </div>
+
+  <div class="collapse" id="mapCollapsible">
+  <div class="card border-0 shadow-sm map-legend mb-2">
+    <div class="card-body py-3 px-3 small map-legend-box">
+      <div class="fw-semibold text-body mb-3">Ligações no grafo</div>
+      <div class="row g-4">
+        <div class="col-lg-6 border-start border-4 border-primary ps-3">
+          <div class="map-legend-title text-primary">Citação (seta azul)</div>
+          <ul class="text-muted">
+            <li>Usa colunas de <strong>referências</strong> (ex. <code class="mono">CR</code>, “Cited References”).</li>
+            <li>Se aparecer um <strong>DOI</strong> igual ao de outro registo <strong>neste CSV</strong>, desenhamos uma seta: <strong>quem cita → quem é citado</strong>.</li>
+            <li>Só reflecte a sua exportação (sem APIs externas).</li>
+          </ul>
+        </div>
+        <div class="col-lg-6 border-start border-4 border-secondary ps-3">
+          <div class="map-legend-title text-secondary">Semelhança (tracejado)</div>
+          <ul class="text-muted">
+            <li>Compara <strong>título + resumo</strong> (palavras com ≥3 letras).</li>
+            <li>Mede sobreposição com o <strong>índice de Jaccard</strong>; liga cada artigo aos vizinhos mais parecidos (até <strong>K</strong>), acima do <strong>mínimo</strong> definido.</li>
+            <li>Indica <em>proximidade temática</em>, não citação real.</li>
+          </ul>
+        </div>
+      </div>
+      <hr class="my-3 opacity-25">
+      <p class="mb-0 text-muted small">
+        <strong>Grafo:</strong> clique num nó para detalhes · <strong>Força / Hierárquico</strong> mudam o desenho ·
+        Ao arrastar, as linhas escondem-se um instante para ver os nós.
+      </p>
+    </div>
+  </div>
+
+  <div id="mapStats" class="alert alert-secondary py-2 small mb-2 d-none" role="status"></div>
+
+  <div class="card border-0 shadow-sm map-filters-card mb-2 mx-0">
+    <div class="card-body py-2 px-3 small">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <span class="fw-semibold text-body">Filtros (triagem e categorias)</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetFilters">Repor filtros</button>
+      </div>
+      <div class="row g-3 align-items-start">
+        <div class="col-12 col-lg-4">
+          <span class="text-muted d-block mb-1 small">Rótulo de triagem</span>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="fltYes" checked>
+              <label class="form-check-label" for="fltYes">Related (sim)</label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="fltNo" checked>
+              <label class="form-check-label" for="fltNo">Not related (não)</label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="fltUnl" checked>
+              <label class="form-check-label" for="fltUnl">Sem rótulo</label>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-5">
+          <span class="text-muted d-block mb-1 small">Categorias — mostrar artigos que tenham <strong>pelo menos uma</strong> das seleccionadas</span>
+          <div class="map-cat-flt-wrap border rounded px-2 py-1 bg-body-secondary bg-opacity-10" style="max-height: 7.5rem; overflow-y: auto;">
+            {% for c in (map_categories or []) %}
+            <div class="form-check form-check-inline mb-1">
+              <input class="form-check-input map-cat-flt" type="checkbox" value="{{ c.id }}" id="mapCatF{{ c.id }}">
+              <label class="form-check-label" for="mapCatF{{ c.id }}">{{ c.name }}</label>
+            </div>
+            {% else %}
+            <span class="text-muted">Nenhuma categoria criada ainda (use a triagem / gestão).</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="col-12 col-lg-3">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="fltUncatOnly">
+            <label class="form-check-label" for="fltUncatOnly">Só artigos <strong>sem</strong> categoria</label>
+          </div>
+          <p class="form-text small mb-0 mt-2">O grafo e o ranking usam só os artigos que passam nos critérios. Use <strong>Recarregar dados</strong> para aplicar.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 align-items-start mb-2">
+    <div class="col-12 col-md-6 col-lg-3">
+      <label class="form-label small mb-1 fw-semibold" for="minSim">Mínimo de semelhança (Jaccard)</label>
+      <input type="number" class="form-control form-control-sm" id="minSim" value="0.06" min="0" max="1" step="0.01"
+        title="Limiar entre 0 e 1 para desenhar ligações de semelhança">
+      <div class="form-text small mt-1 mb-0">
+        Número entre <strong>0</strong> e <strong>1</strong> que define o quão parecidos dois resumos+títulos têm de ser para aparecer uma <strong>linha tracejada</strong>.
+        O programa conta palavras em comum (com 3+ letras) e calcula o <strong>índice de Jaccard</strong> (tamanho da intersecção ÷ tamanho da união).
+        Só liga se Jaccard <strong>≥ este mínimo</strong>.
+        <span class="d-block mt-1"><strong>0,06</strong> = aceita ligações fracas (grafo mais denso). <strong>0,15–0,25</strong> = mais exigente (menos linhas, mais legível).</span>
+        <span class="d-block mt-1 text-muted">Só conta para linhas <em>tracejadas</em> de semelhança (com “Mostrar semelhança” ligado).</span>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+      <label class="form-label small mb-1 fw-semibold" for="topK">Vizinhos (K) por artigo</label>
+      <input type="number" class="form-control form-control-sm" id="topK" value="4" min="1" max="12" step="1"
+        title="Número máximo de ligações de semelhança por artigo">
+      <div class="form-text small mt-1 mb-0">
+        Para <strong>cada</strong> artigo, ligamos-no no máximo aos <strong>K</strong> outros que tenham maior semelhança de texto <em>e</em> que já passem no mínimo Jaccard acima.
+        Ex.: <strong>K = 4</strong> → no máximo quatro linhas tracejadas a sair desse nó (se existirem candidatos).
+        <span class="d-block mt-1"><strong>Reduzir K</strong> (ex.: 2) corta logo muitas linhas. <strong>Aumentar K</strong> acrescenta vizinhos e pode poluir o desenho.</span>
+        <span class="d-block mt-1 text-muted">Também só para semelhança tracejada; as setas azuis de citação não usam estes dois valores.</span>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-4">
+      <label class="form-label small mb-0">Organização do desenho</label>
+      <select class="form-select form-select-sm" id="layoutMode" title="Como os nós e linhas são dispostos">
+        <option value="force" selected>Força — espalha nós e reduz sobreposição</option>
+        <option value="hier">Hierárquico — camadas (melhor com poucas linhas de semelhança)</option>
+      </select>
+      <div class="form-text" id="layoutModeHint">O modo <strong>Força</strong> usa repulsão entre nós e arestas mais rectas. <strong>Hierárquico</strong> ordena sobretudo citações de cima para baixo.</div>
+    </div>
+    <div class="col-12 col-sm-4 col-lg-2">
+      <div class="form-check mt-sm-4">
+        <input class="form-check-input" type="checkbox" id="includeSim" checked>
+        <label class="form-check-label small" for="includeSim">Mostrar semelhança</label>
+      </div>
+    </div>
+    <div class="col-12 d-flex flex-wrap gap-2 justify-content-lg-end">
+      <button type="button" class="btn btn-sm btn-primary" id="btnReload">Recarregar dados</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFit">Ajustar vista</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="btnPhysics">Pausar física</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<div id="mapMainStage" class="flex-grow-1 flex-fill min-h-0 d-flex flex-column">
+  <div id="mapViewGraph" class="d-flex flex-column flex-grow-1 flex-fill min-h-0">
+    <div class="map-graph-host flex-grow-1 flex-fill px-1 px-sm-2 px-lg-3 pb-2 min-h-0">
+      <div class="map-graph-frame border rounded position-relative flex-grow-1 flex-fill min-h-0 w-100">
+        <div id="network" class="position-absolute top-0 start-0 w-100 h-100"></div>
+        <div id="mapEmpty" class="position-absolute top-50 start-50 translate-middle text-muted text-center px-3 d-none">
+          Não há artigos neste conjunto.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mapViewRanking" class="d-none flex-column flex-grow-1 flex-fill min-h-0 px-2 px-sm-3 px-lg-3 pb-2">
+    <div id="rankingStats" class="alert alert-secondary py-2 small mb-2 d-none" role="status"></div>
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-2">
+      <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" id="rankOnlyAbove">
+        <label class="form-check-label small" for="rankOnlyAbove">Só artigos com melhor Jaccard ≥ mínimo (campo acima)</label>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-primary" id="btnReloadRanking">Atualizar ranking</button>
+    </div>
+    <div class="map-ranking-wrap border rounded flex-grow-1 overflow-auto bg-body">
+      <table class="table table-sm table-hover align-middle mb-0 map-ranking-table">
+        <thead>
+          <tr>
+            <th class="ps-3">#</th>
+            <th>Título</th>
+            <th>Ano</th>
+            <th>Rótulo</th>
+            <th>Melhor Jaccard</th>
+            <th class="pe-3">Mais parecido com</th>
+          </tr>
+        </thead>
+        <tbody id="rankingTbody"></tbody>
+      </table>
+    </div>
+    <p id="rankingEmpty" class="small text-muted mt-2 mb-0 d-none">Sem dados de ranking para mostrar.</p>
+  </div>
+</div>
+
+<p id="mapFootGraph" class="flex-shrink-0 small text-muted px-3 px-lg-4 mb-2 mt-1">
+  Arraste nós · zoom com scroll · Em conjuntos muito grandes (&gt;220 artigos) as ligações de semelhança são omitidas; as de citação por DOI mantêm-se.
+</p>
+<p id="mapFootRanking" class="flex-shrink-0 small text-muted px-3 px-lg-4 mb-2 mt-1 d-none">
+  Ordenação por maior <strong>Jaccard</strong> face a qualquer outro artigo do CSV (título+resumo). Em conjuntos com mais de 220 artigos o ranking fica indisponível (mesmo limite do grafo).
+</p>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="mapArticleOffcanvas" aria-labelledby="mapArticleOffcanvasLabel"
+  style="--bs-offcanvas-width: min(100vw, 440px);">
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title text-truncate pe-2" id="mapArticleOffcanvasLabel">Artigo</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fechar"></button>
+  </div>
+  <div class="offcanvas-body" id="mapArticleOffcanvasBody"></div>
+</div>
+
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script>
+(function () {
+  const datasetId = {{ dataset_id|tojson }};
+  const el = document.getElementById('network');
+  const host = document.querySelector('.map-graph-host');
+  const statsEl = document.getElementById('mapStats');
+  const emptyEl = document.getElementById('mapEmpty');
+  const offcanvasEl = document.getElementById('mapArticleOffcanvas');
+  const offcanvasTitleEl = document.getElementById('mapArticleOffcanvasLabel');
+  const offcanvasBodyEl = document.getElementById('mapArticleOffcanvasBody');
+  let network = null;
+  let nodesDS = null;
+  let edgesDS = null;
+  let physicsOn = true;
+  let rankingRows = null;
+  let rankingById = new Map();
+  let rankingMeta = null;
+  let rankingLoadKey = '';
+
+  const MAP_PANEL_KEY = 'litreview_mapPanelExpanded';
+  (function initMapPanelCollapse() {
+    const panel = document.getElementById('mapCollapsible');
+    const btn = document.getElementById('btnMapPanelToggle');
+    const label = document.getElementById('mapPanelToggleLabel');
+    if (!panel || !btn || !label) return;
+    function setExpandedUi(exp) {
+      label.textContent = exp ? 'Ocultar legenda e opções' : 'Legenda e opções';
+      btn.setAttribute('aria-expanded', exp ? 'true' : 'false');
+    }
+    if (localStorage.getItem(MAP_PANEL_KEY) === '1') {
+      panel.classList.add('show');
+      setExpandedUi(true);
+    }
+    panel.addEventListener('shown.bs.collapse', function () {
+      localStorage.setItem(MAP_PANEL_KEY, '1');
+      setExpandedUi(true);
+      requestAnimationFrame(sizeNetworkCanvas);
+    });
+    panel.addEventListener('hidden.bs.collapse', function () {
+      localStorage.setItem(MAP_PANEL_KEY, '0');
+      setExpandedUi(false);
+      requestAnimationFrame(sizeNetworkCanvas);
+    });
+  })();
+
+  function sizeNetworkCanvas() {
+    if (!host || !el) return;
+    const h = Math.floor(host.getBoundingClientRect().height);
+    el.style.height = Math.max(400, h) + 'px';
+    if (network && typeof network.redraw === 'function') {
+      try { network.redraw(); } catch (e) {}
+    }
+  }
+
+  if (typeof ResizeObserver !== 'undefined' && host) {
+    const ro = new ResizeObserver(function () { sizeNetworkCanvas(); });
+    ro.observe(host);
+  }
+  window.addEventListener('resize', function () { sizeNetworkCanvas(); });
+
+  document.addEventListener('lr-reading-theme', function () {
+    requestAnimationFrame(function () {
+      sizeNetworkCanvas();
+      if (network && nodesDS && edgesDS) {
+        rebuildNetwork();
+      }
+    });
+  });
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  function badgeClassForGroup(g) {
+    if (g === 'yes') return 'bg-success';
+    if (g === 'no') return 'bg-danger';
+    return 'bg-secondary';
+  }
+
+  function getSimilarNeighborsForNode(nodeId) {
+    if (!edgesDS || nodeId == null) return [];
+    const edges = edgesDS.get({
+      filter: function (ed) {
+        return ed.edgeType === 'similarity' && (ed.from === nodeId || ed.to === nodeId);
+      },
+    });
+    const seen = new Set();
+    const out = [];
+    edges.forEach(function (ed) {
+      const other = ed.from === nodeId ? ed.to : ed.from;
+      if (other == null || seen.has(other)) return;
+      seen.add(other);
+      const j = typeof ed.jaccard === 'number' ? ed.jaccard : 0;
+      out.push({ otherId: other, jaccard: j });
+    });
+    out.sort(function (a, b) { return b.jaccard - a.jaccard; });
+    return out;
+  }
+
+  function buildSimilarNeighborsHtml(articleId) {
+    const sim = getSimilarNeighborsForNode(articleId);
+    if (!sim.length) {
+      const inc = document.getElementById('includeSim');
+      const hint = inc && !inc.checked
+        ? ' Ative “Mostrar semelhança” e recarregue o mapa para ver ligações tracejadas.'
+        : ' Pode não haver pares acima do mínimo de Jaccard, o limite de vizinhos (K) esgotou-se, ou o conjunto tem mais de 220 artigos (semelhança omitida neste mapa).';
+      return (
+        '<div class="map-sim-neighbors mt-3 pt-3 border-top">' +
+        '<span class="text-muted small d-block mb-1">Semelhança no mapa (ligações tracejadas ao artigo)</span>' +
+        '<p class="small text-muted mb-0">Nenhum vizinho por semelhança ligado a este nó neste desenho.' + hint + '</p>' +
+        '</div>'
+      );
+    }
+    const parts = sim.map(function (s) {
+      const pct = Math.round(10000 * s.jaccard) / 100;
+      const nrow = nodesDS ? nodesDS.get(s.otherId) : null;
+      const t = (nrow && (nrow.fullTitle || nrow.label)) ? String(nrow.fullTitle || nrow.label).trim() : 'Artigo #' + s.otherId;
+      const short = t.length > 100 ? t.slice(0, 98) + '…' : t;
+      const badge = nrow
+        ? '<span class="badge ' + badgeClassForGroup(nrow.group) + ' align-middle ms-1">' + esc(nrow.screeningLabel || '') + '</span>'
+        : '';
+      return (
+        '<li class="mb-1">' +
+        '<a href="#" class="map-sim-neighbor-link" data-map-neighbor-id="' + esc(String(s.otherId)) + '">' +
+        '<span class="text-muted small">#' + esc(String(s.otherId)) + '</span> · ' +
+        '<span class="fw-medium">' + esc(short) + '</span> ' + badge +
+        '<span class="text-muted small ms-1">· Jaccard ≈ ' + esc(String(pct)) + '%</span>' +
+        '</a></li>'
+      );
+    });
+    return (
+      '<div class="map-sim-neighbors mt-3 pt-3 border-top">' +
+      '<span class="text-muted small d-block mb-2">Semelhança no mapa (ligados por linha tracejada a este artigo)</span>' +
+      '<ul class="list-unstyled mb-0">' + parts.join('') + '</ul>' +
+      '<p class="small text-muted mt-2 mb-0">Clique num vizinho para abrir a ficha.</p>' +
+      '</div>'
+    );
+  }
+
+  function fillArticlePanel(row) {
+    if (!row || !offcanvasBodyEl || !offcanvasTitleEl) return;
+    offcanvasTitleEl.textContent = 'Artigo #' + row.id;
+    const doi = (row.doi || '').trim();
+    const doiBlock = doi
+      ? '<p class="mb-2"><span class="text-muted small">DOI</span><br><a href="https://doi.org/' + encodeURIComponent(doi) + '" target="_blank" rel="noopener" class="small text-break">' + esc(doi) + '</a></p>'
+      : '<p class="mb-2 text-muted small">Sem DOI detetado nas colunas extra.</p>';
+    const year = row.year ? esc(String(row.year)) : '—';
+    const cats = Array.isArray(row.categories) ? row.categories : [];
+    const catHtml = cats.length
+        ? '<div class="mb-2">' + cats.map(function (c) {
+          return '<span class="badge rounded-pill bg-body-secondary border me-1 mb-1 fw-normal">' + esc(c) + '</span>';
+        }).join('') + '</div>'
+      : '<p class="small text-muted mb-2">Sem categorias.</p>';
+    const abs = row.abstractPreview || '';
+    const absBlock = abs
+      ? '<div class="mb-0"><span class="text-muted small d-block mb-1">Resumo (pré-visualização)</span><pre class="abstract-preview mb-0">' + esc(abs) + '</pre></div>'
+      : '<p class="small text-muted mb-0">Sem resumo.</p>';
+    const simBlock = buildSimilarNeighborsHtml(row.id);
+    offcanvasBodyEl.innerHTML =
+      '<h6 class="fw-semibold mb-2">' + esc(row.fullTitle || row.label || '(sem título)') + '</h6>' +
+      '<p class="small mb-2"><span class="text-muted">Ano</span> ' + year + '</p>' +
+      '<p class="mb-2"><span class="badge ' + badgeClassForGroup(row.group) + '">' + esc(row.screeningLabel || '') + '</span></p>' +
+      doiBlock + '<div class="mb-2"><span class="text-muted small">Categorias</span></div>' + catHtml + absBlock + simBlock;
+  }
+
+  function appendMapFilterParams(p) {
+    const fy = document.getElementById('fltYes');
+    const fn = document.getElementById('fltNo');
+    const fu = document.getElementById('fltUnl');
+    if (fy && !fy.checked) p.set('inc_yes', '0');
+    if (fn && !fn.checked) p.set('inc_no', '0');
+    if (fu && !fu.checked) p.set('inc_unl', '0');
+    const uco = document.getElementById('fltUncatOnly');
+    if (uco && uco.checked) p.set('uncat_only', '1');
+    document.querySelectorAll('.map-cat-flt:checked').forEach(function (cb) {
+      p.append('cat', cb.value);
+    });
+  }
+
+  function buildUrl() {
+    const minSim = parseFloat(document.getElementById('minSim').value) || 0.06;
+    const topK = parseInt(document.getElementById('topK').value, 10) || 4;
+    const p = new URLSearchParams();
+    appendMapFilterParams(p);
+    p.set('min_sim', String(minSim));
+    p.set('top_k', String(topK));
+    p.set('include_sim', document.getElementById('includeSim').checked ? '1' : '0');
+    return '/api/map/' + datasetId + '?' + p.toString();
+  }
+
+  if (offcanvasBodyEl) {
+    offcanvasBodyEl.addEventListener('click', function (ev) {
+      const link = ev.target.closest('a.map-sim-neighbor-link[data-map-neighbor-id]');
+      if (!link || !nodesDS) return;
+      ev.preventDefault();
+      const nid = parseInt(link.getAttribute('data-map-neighbor-id'), 10);
+      if (Number.isNaN(nid)) return;
+      const nrow = nodesDS.get(nid);
+      if (!nrow) return;
+      fillArticlePanel(nrow);
+    });
+  }
+
+  function wireNetworkClicks() {
+    if (!network || !offcanvasEl) return;
+    network.on('click', function (params) {
+      const oc = bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl);
+      if (params.nodes.length === 1 && nodesDS) {
+        const row = nodesDS.get(params.nodes[0]);
+        fillArticlePanel(row);
+        oc.show();
+      } else {
+        oc.hide();
+      }
+    });
+  }
+
+  function getReadingTheme() {
+    var m = document.body.getAttribute('data-lr-reading');
+    if (m === 'dark' || m === 'paper') return m;
+    return 'light';
+  }
+
+  function buildVisOptions(mode, theme) {
+    const isDark = theme === 'dark';
+    const isPaper = theme === 'paper';
+    const nodeFont = isDark ? '#e8eaef' : (isPaper ? '#2a2419' : '#1a1d26');
+    const nodeBase = {
+      shape: 'dot',
+      size: 17,
+      font: { size: 12, color: nodeFont },
+      borderWidth: 2,
+      scaling: { min: 11, max: 26 },
+    };
+    const groups = {
+      yes: { color: { background: '#a3cfbb', border: '#198754' }, font: { color: '#0d1117' } },
+      no: { color: { background: '#f1aeb5', border: '#dc3545' }, font: { color: '#0d1117' } },
+      unlabeled: { color: { background: '#dee2e6', border: '#6c757d' }, font: { color: '#0d1117' } },
+    };
+    if (isDark) {
+      groups.yes.color.background = '#1f3d2f';
+      groups.yes.font.color = '#e9ecef';
+      groups.no.color.background = '#4a1f24';
+      groups.no.font.color = '#e9ecef';
+      groups.unlabeled.color.background = '#343a40';
+      groups.unlabeled.font.color = '#e9ecef';
+    } else if (isPaper) {
+      groups.unlabeled.color.background = '#e8dfd4';
+      groups.unlabeled.color.border = '#8a7a6a';
+      groups.unlabeled.font.color = '#2a2419';
+    }
+
+    const sizeOpts = { width: '100%', height: '100%', autoResize: true };
+
+    if (mode === 'hier') {
+      return Object.assign({}, sizeOpts, {
+        nodes: nodeBase,
+        edges: {
+          smooth: {
+            type: 'cubicBezier',
+            forceDirection: 'vertical',
+            roundness: 0.32,
+          },
+        },
+        layout: {
+          hierarchical: {
+            enabled: true,
+            direction: 'UD',
+            sortMethod: 'directed',
+            shakeTowards: 'roots',
+            levelSeparation: 165,
+            nodeSpacing: 210,
+            treeSpacing: 260,
+            blockShifting: true,
+            edgeMinimization: true,
+            parentCentralization: true,
+          },
+        },
+        physics: { enabled: false },
+        interaction: {
+          hover: true,
+          tooltipDelay: 120,
+          hideEdgesOnDrag: true,
+          hideNodesOnDrag: false,
+        },
+        groups: groups,
+      });
+    }
+
+    return Object.assign({}, sizeOpts, {
+      nodes: nodeBase,
+      edges: {
+        smooth: { type: 'continuous', roundness: 0.12 },
+      },
+      layout: { hierarchical: { enabled: false } },
+      physics: {
+        enabled: true,
+        solver: 'forceAtlas2Based',
+        forceAtlas2Based: {
+          theta: 0.5,
+          gravitationalConstant: -42,
+          centralGravity: 0.003,
+          springLength: 340,
+          springConstant: 0.038,
+          damping: 0.58,
+          avoidOverlap: 1,
+        },
+        maxVelocity: 28,
+        minVelocity: 0.6,
+        stabilization: {
+          enabled: true,
+          iterations: 450,
+          updateInterval: 20,
+          fit: true,
+        },
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 120,
+        hideEdgesOnDrag: true,
+        hideNodesOnDrag: false,
+      },
+      groups: groups,
+    });
+  }
+
+  function wireNetworkCanvasBackground() {
+    if (!network) return;
+    network.on('beforeDrawing', function (ctx) {
+      var bg = (getComputedStyle(document.body).getPropertyValue('--lr-map-canvas-bg') || '').trim();
+      if (!bg) bg = '#e8eaef';
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.restore();
+    });
+  }
+
+  function rebuildNetwork() {
+    if (!nodesDS || !edgesDS) return;
+    const mode = document.getElementById('layoutMode').value;
+    const theme = getReadingTheme();
+    const options = buildVisOptions(mode, theme);
+    const btnPhys = document.getElementById('btnPhysics');
+
+    if (network) network.destroy();
+    sizeNetworkCanvas();
+    network = new vis.Network(el, { nodes: nodesDS, edges: edgesDS }, options);
+    wireNetworkCanvasBackground();
+
+    if (mode === 'hier') {
+      physicsOn = false;
+      btnPhys.disabled = true;
+      btnPhys.textContent = 'Física off (hierárquico)';
+    } else {
+      physicsOn = true;
+      btnPhys.disabled = false;
+      btnPhys.textContent = 'Pausar física';
+      network.once('stabilizationIterationsDone', function () {
+        if (network) network.setOptions({ physics: { enabled: physicsOn } });
+      });
+    }
+
+    wireNetworkClicks();
+
+    requestAnimationFrame(function () {
+      sizeNetworkCanvas();
+      if (network) network.fit({ animation: false });
+    });
+  }
+
+  async function loadGraph() {
+    statsEl.classList.add('d-none');
+    emptyEl.classList.add('d-none');
+    const res = await fetch(buildUrl());
+    if (!res.ok) {
+      statsEl.textContent = 'Não foi possível carregar o grafo.';
+      statsEl.classList.remove('d-none');
+      statsEl.classList.replace('alert-secondary', 'alert-danger');
+      return;
+    }
+    const data = await res.json();
+    const n = data.nodes || [];
+    const e = data.edges || [];
+    const st = data.stats || {};
+
+    if (n.length === 0) {
+      emptyEl.textContent = (st && st.message) ? st.message : 'Não há artigos neste conjunto.';
+      emptyEl.classList.remove('d-none');
+      if (network) {
+        network.destroy();
+        network = null;
+      }
+      nodesDS = null;
+      edgesDS = null;
+      sizeNetworkCanvas();
+      statsEl.innerHTML = esc(
+        (st.n_in_dataset != null ? 'No conjunto: ' + st.n_in_dataset + ' artigo(s). ' : '') +
+        ((st && st.message) ? st.message : 'Sem nós para mostrar.')
+      );
+      statsEl.classList.remove('d-none');
+      statsEl.classList.remove('alert-danger');
+      statsEl.classList.add('alert-secondary');
+      return;
+    }
+
+    nodesDS = new vis.DataSet(n.map(function (x) {
+      /* vis-network mostra `title` como texto simples — HTML aparece literal; usar linhas. */
+      const tipParts = [
+        String(x.fullTitle || x.label || '').trim(),
+        String(x.screeningLabel || '').trim(),
+        x.year ? 'Ano: ' + String(x.year) : null,
+        'Clique no nó para ver o painel completo.',
+      ].filter(function (p) { return p; });
+      const tip = tipParts.join('\n');
+      return {
+        id: x.id,
+        label: (x.label || '').length > 48 ? (x.label || '').slice(0, 46) + '…' : (x.label || ''),
+        title: tip,
+        group: x.group || 'unlabeled',
+        fullTitle: x.fullTitle || '',
+        year: x.year || '',
+        doi: x.doi || '',
+        abstractPreview: x.abstractPreview || '',
+        categories: x.categories || [],
+        screeningLabel: x.screeningLabel || '',
+      };
+    }));
+
+    const mapTheme = getReadingTheme();
+    edgesDS = new vis.DataSet(e.map(function (x) {
+      const isCit = x.type === 'citation';
+      var simCol;
+      if (mapTheme === 'dark') {
+        simCol = { color: 'rgba(180, 190, 215, 0.28)', highlight: 'rgba(210, 218, 240, 0.55)' };
+      } else if (mapTheme === 'paper') {
+        simCol = { color: 'rgba(90, 72, 52, 0.42)', highlight: 'rgba(70, 52, 36, 0.72)' };
+      } else {
+        simCol = { color: 'rgba(95, 103, 118, 0.38)', highlight: 'rgba(73, 80, 87, 0.72)' };
+      }
+      return {
+        from: x.from,
+        to: x.to,
+        edgeType: isCit ? 'citation' : 'similarity',
+        jaccard: isCit ? undefined : (typeof x.value === 'number' ? x.value : parseFloat(x.value) || 0),
+        arrows: isCit ? 'to' : undefined,
+        dashes: !isCit,
+        color: isCit ? { color: '#4d9fff', highlight: '#82b4ff' } : simCol,
+        width: isCit ? 2.1 : Math.max(0.65, 0.65 + 2.2 * (x.value || 0)),
+        title: String(x.title || ''),
+      };
+    }));
+
+    rebuildNetwork();
+
+    let prefix = 'Artigos: ' + st.n_articles;
+    if (st.n_in_dataset != null && st.n_in_dataset !== st.n_articles) {
+      prefix = 'Artigos (filtro): ' + st.n_articles + ' de ' + st.n_in_dataset;
+    }
+    let msg = prefix + ' · Ligações de citação (DOI): ' + st.n_citation_edges
+      + ' · Semelhança (texto): ' + st.n_similarity_edges;
+    let statsHtml = esc(msg);
+    if (st.message) {
+      statsHtml += '<br><span class="small">' + esc(st.message) + '</span>';
+    }
+    if (st.citation_hint) {
+      statsHtml += '<div class="small text-body-secondary mt-2 pt-2 border-top opacity-75">' + esc(st.citation_hint) + '</div>';
+    }
+    const mode = document.getElementById('layoutMode').value;
+    if (mode === 'hier' && st.n_similarity_edges > 0) {
+      statsHtml += '<div class="small mt-1">' + esc('Modo hierárquico com muitas linhas de semelhança: considere desligar “Mostrar semelhança” para um desenho mais limpo.') + '</div>';
+    }
+    statsEl.innerHTML = statsHtml;
+    statsEl.classList.remove('d-none');
+    statsEl.classList.remove('alert-danger');
+    statsEl.classList.add('alert-secondary');
+  }
+
+  function buildRankingUrl() {
+    const minSim = parseFloat(document.getElementById('minSim').value) || 0.06;
+    const p = new URLSearchParams();
+    appendMapFilterParams(p);
+    p.set('min_sim', String(minSim));
+    return '/api/map/ranking/' + datasetId + '?' + p.toString();
+  }
+
+  function getFilteredRankingRows() {
+    if (!rankingRows || !rankingRows.length) return [];
+    const onlyEl = document.getElementById('rankOnlyAbove');
+    if (onlyEl && onlyEl.checked) {
+      return rankingRows.filter(function (r) { return r.above_threshold; });
+    }
+    return rankingRows;
+  }
+
+  function renderRankingTable() {
+    const tbody = document.getElementById('rankingTbody');
+    const rEmpty = document.getElementById('rankingEmpty');
+    if (!tbody || !rEmpty) return;
+    tbody.innerHTML = '';
+    if (!rankingRows || !rankingRows.length) {
+      rEmpty.classList.remove('d-none');
+      rEmpty.textContent = (rankingMeta && rankingMeta.message)
+        ? rankingMeta.message
+        : 'Sem dados de ranking para mostrar.';
+      return;
+    }
+    const rows = getFilteredRankingRows();
+    if (!rows.length) {
+      rEmpty.classList.remove('d-none');
+      rEmpty.textContent = 'Nenhum artigo cumpre o filtro (melhor Jaccard ≥ mínimo). Desmarque a opção ou baixe o limiar em “Mínimo de semelhança”.';
+      return;
+    }
+    rEmpty.classList.add('d-none');
+    rows.forEach(function (r, i) {
+      const tr = document.createElement('tr');
+      tr.dataset.articleId = String(r.id);
+      const titleShort = (r.title || r.fullTitle || '').trim();
+      const labelDisp = titleShort.length > 90 ? titleShort.slice(0, 88) + '…' : titleShort;
+      const neigh = (r.best_neighbor_title || '').trim();
+      const neighDisp = neigh.length > 72 ? neigh.slice(0, 70) + '…' : neigh;
+      const neighCell = r.best_neighbor_id != null
+        ? '<span class="text-muted small">#' + esc(String(r.best_neighbor_id)) + '</span> ' + esc(neighDisp || '(sem título)')
+        : '<span class="text-muted">—</span>';
+      const pct = r.best_pct != null ? Number(r.best_pct) : Math.round(10000 * (r.best_score || 0)) / 100;
+      tr.innerHTML =
+        '<td class="ps-3 text-muted">' + (i + 1) + '</td>' +
+        '<td><span class="fw-medium" title="' + esc(titleShort) + '">' + esc(labelDisp || '(sem título)') + '</span></td>' +
+        '<td class="text-nowrap small">' + esc(r.year != null && r.year !== '' ? String(r.year) : '—') + '</td>' +
+        '<td><span class="badge ' + badgeClassForGroup(r.group) + '">' + esc(r.screeningLabel || '') + '</span></td>' +
+        '<td class="text-nowrap small"><strong>' + esc(String(pct)) + '</strong>% <span class="text-muted">(' + esc(String(r.best_score)) + ')</span></td>' +
+        '<td class="small pe-3">' + neighCell + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadRanking(force) {
+    const rStats = document.getElementById('rankingStats');
+    const key = buildRankingUrl();
+    if (!force && rankingLoadKey === key && rankingRows) {
+      renderRankingTable();
+      return;
+    }
+    if (rStats) {
+      rStats.classList.add('d-none');
+      rStats.classList.remove('alert-danger');
+      rStats.classList.add('alert-secondary');
+    }
+    try {
+      const res = await fetch(key);
+      if (!res.ok) throw new Error('http');
+      const data = await res.json();
+      rankingRows = data.ranking || [];
+      rankingMeta = data.stats || {};
+      rankingLoadKey = key;
+      rankingById = new Map();
+      rankingRows.forEach(function (r) { rankingById.set(r.id, r); });
+      if (rStats) {
+        rStats.classList.remove('alert-danger');
+        rStats.classList.remove('alert-warning');
+        rStats.classList.add('alert-secondary');
+        const showBanner = rankingMeta.skipped || rankingMeta.message
+          || !rankingRows.length;
+        if (showBanner) {
+          let msg = rankingMeta.message || '';
+          if (!msg && !rankingRows.length && !rankingMeta.skipped) {
+            msg = 'Não há artigos neste conjunto.';
+          }
+          if (!msg && rankingMeta.skipped) {
+            msg = rankingMeta.message || 'Ranking indisponível para este tamanho de conjunto.';
+          }
+          if (rankingMeta.n_in_dataset != null && rankingMeta.n_after_filter === 0) {
+            msg = (msg ? msg + ' ' : '') + '(Total no conjunto: ' + rankingMeta.n_in_dataset + '.)';
+          } else if (rankingMeta.n_articles != null && !rankingMeta.skipped && rankingMeta.n_in_dataset != null
+              && rankingMeta.n_in_dataset !== rankingMeta.n_articles) {
+            msg = (msg ? msg + ' — ' : '') + 'Com filtros: ' + rankingMeta.n_articles + ' de ' + rankingMeta.n_in_dataset;
+          } else if (rankingMeta.n_articles != null && !rankingMeta.skipped) {
+            msg = (msg ? msg + ' — ' : '') + 'Artigos: ' + rankingMeta.n_articles;
+          }
+          rStats.textContent = msg;
+          rStats.classList.remove('d-none');
+          if (rankingMeta.skipped) {
+            rStats.classList.replace('alert-secondary', 'alert-warning');
+          }
+        } else {
+          rStats.classList.add('d-none');
+        }
+      }
+    } catch (e) {
+      rankingRows = [];
+      rankingById = new Map();
+      rankingMeta = { message: 'Não foi possível carregar o ranking.' };
+      rankingLoadKey = '';
+      if (rStats) {
+        rStats.textContent = rankingMeta.message;
+        rStats.classList.remove('d-none');
+        rStats.classList.replace('alert-secondary', 'alert-danger');
+      }
+    }
+    renderRankingTable();
+  }
+
+  function applyMainView() {
+    const vGraph = document.getElementById('viewGraph');
+    const vRank = document.getElementById('viewRanking');
+    const elGraph = document.getElementById('mapViewGraph');
+    const elRank = document.getElementById('mapViewRanking');
+    const footG = document.getElementById('mapFootGraph');
+    const footR = document.getElementById('mapFootRanking');
+    if (!vGraph || !vRank || !elGraph || !elRank) return;
+    if (vRank.checked) {
+      elGraph.classList.add('d-none');
+      elGraph.classList.remove('d-flex');
+      elRank.classList.remove('d-none');
+      elRank.classList.add('d-flex');
+      if (footG) footG.classList.add('d-none');
+      if (footR) footR.classList.remove('d-none');
+      loadRanking(false);
+    } else {
+      elRank.classList.add('d-none');
+      elRank.classList.remove('d-flex');
+      elGraph.classList.remove('d-none');
+      elGraph.classList.add('d-flex');
+      if (footR) footR.classList.add('d-none');
+      if (footG) footG.classList.remove('d-none');
+      requestAnimationFrame(function () { sizeNetworkCanvas(); });
+    }
+  }
+
+  document.getElementById('viewGraph').addEventListener('change', applyMainView);
+  document.getElementById('viewRanking').addEventListener('change', applyMainView);
+
+  document.getElementById('rankOnlyAbove').addEventListener('change', function () {
+    renderRankingTable();
+  });
+  document.getElementById('btnReloadRanking').addEventListener('click', function () {
+    loadRanking(true);
+  });
+
+  document.getElementById('rankingTbody').addEventListener('click', function (ev) {
+    const tr = ev.target.closest('tr[data-article-id]');
+    if (!tr) return;
+    const id = parseInt(tr.getAttribute('data-article-id'), 10);
+    const row = rankingById.get(id);
+    if (!row || !offcanvasEl) return;
+    fillArticlePanel(row);
+    bootstrap.Offcanvas.getOrCreateInstance(offcanvasEl).show();
+  });
+
+  document.getElementById('btnReload').addEventListener('click', function () {
+    loadGraph();
+    if (document.getElementById('viewRanking') && document.getElementById('viewRanking').checked) {
+      loadRanking(true);
+    }
+  });
+
+  (function wireMapFilterUi() {
+    const un = document.getElementById('fltUncatOnly');
+    if (!un) return;
+    const cats = document.querySelectorAll('.map-cat-flt');
+    function syncUncat() {
+      cats.forEach(function (cb) {
+        cb.disabled = un.checked;
+        if (un.checked) cb.checked = false;
+      });
+    }
+    function syncCats() {
+      var any = false;
+      cats.forEach(function (c) { if (c.checked) any = true; });
+      if (any) un.checked = false;
+      if (!un.checked) cats.forEach(function (cb) { cb.disabled = false; });
+    }
+    un.addEventListener('change', syncUncat);
+    cats.forEach(function (cb) { cb.addEventListener('change', syncCats); });
+  })();
+
+  document.getElementById('btnResetFilters').addEventListener('click', function () {
+    ['fltYes', 'fltNo', 'fltUnl'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.checked = true;
+    });
+    var u = document.getElementById('fltUncatOnly');
+    if (u) u.checked = false;
+    document.querySelectorAll('.map-cat-flt').forEach(function (cb) {
+      cb.checked = false;
+      cb.disabled = false;
+    });
+  });
+  document.getElementById('layoutMode').addEventListener('change', function () {
+    if (nodesDS && edgesDS) rebuildNetwork();
+  });
+  document.getElementById('btnFit').addEventListener('click', function () {
+    if (network) network.fit({ animation: { duration: 450, easingFunction: 'easeInOutQuad' } });
+  });
+  document.getElementById('btnPhysics').addEventListener('click', function () {
+    if (!network || document.getElementById('layoutMode').value === 'hier') return;
+    physicsOn = !physicsOn;
+    network.setOptions({ physics: { enabled: physicsOn } });
+    document.getElementById('btnPhysics').textContent = physicsOn ? 'Pausar física' : 'Retomar física';
+  });
+
+  loadGraph();
+})();
+</script>
+{% endblock %}
