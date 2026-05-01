@@ -25,10 +25,10 @@ Utiliza-se **no teu computador**, em **uma máquina de cada vez** (sessão Flask
 Na pasta do repositório:
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
+pip3 install -r requirements.txt
+python3 app.py
 ```
 
 Abre o browser em **http://127.0.0.1:5001/** (porta por omissão neste projeto). No macOS Monterey ou mais recente, o **AirPlay Receiver** do sistema usa a porta **5000**; se abrires `http://127.0.0.1:5000` sem o Flask nessa porta, o Chrome pode mostrar **403** — não é a app a negar acesso. Podes usar `PORT=5000 python app.py` só depois de desativar o AirPlay em *Definições do Sistema → Geral → AirDrop e Handoff → Receptor AirPlay*, ou deixar a omissão **5001**.

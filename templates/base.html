@@ -324,8 +324,8 @@
     body.lr-app[data-lr-reading="paper"] {
       --lr-pastel-linen: #f5f1ed;
       --lr-map-canvas-bg: #e8e3de;
-      --lr-page-bg: var(--lr-pastel-linen);
-      --lr-surface: #fdfcfa;
+      --lr-page-bg: #e9e4dc;
+      --lr-surface: var(--lr-pastel-linen);
       --lr-border: rgba(72, 58, 48, 0.14);
       --lr-shadow: 0 1px 2px rgba(60, 48, 40, 0.05), 0 4px 18px rgba(60, 48, 40, 0.06);
       --lr-shadow-lg: 0 4px 22px rgba(60, 48, 40, 0.07);
@@ -397,6 +397,21 @@
       color: #3d2f6b;
     }
 
+    body.lr-app[data-lr-reading="paper"] .form-control,
+    body.lr-app[data-lr-reading="paper"] .form-select {
+      background-color: #f3eee8;
+      border-color: rgba(72, 58, 48, 0.25);
+      color: #2a2419;
+    }
+
+    body.lr-app[data-lr-reading="paper"] .form-control:focus,
+    body.lr-app[data-lr-reading="paper"] .form-select:focus {
+      background-color: #faf7f2;
+      border-color: #7a6a5a;
+      box-shadow: 0 0 0 0.2rem rgba(92, 77, 66, 0.15);
+      color: #2a2419;
+    }
+
     /* ===== Dark Mode (keeps Bootstrap button semantics) ===== */
     body.dark-mode.lr-app {
       --lr-map-canvas-bg: #12141a;
@@ -405,10 +420,12 @@
       --lr-border: rgba(255, 255, 255, 0.08);
       --lr-accent-soft: rgba(130, 170, 255, 0.12);
       background-color: var(--lr-page-bg);
-      color: #e8eaef;
+      color: #f8f9fa;
       --bs-body-bg: #0c0d12;
-      --bs-body-color: #e8eaef;
+      --bs-body-color: #f8f9fa;
       --bs-border-color: rgba(255, 255, 255, 0.1);
+      -webkit-font-smoothing: auto;
+      -moz-osx-font-smoothing: auto;
     }
 
     body.dark-mode .abstract-box,
@@ -418,7 +435,9 @@
     }
 
     body.dark-mode .abstract-box pre {
-      color: #eceef3 !important;
+      color: #ffffff !important;
+      font-weight: 450;
+      letter-spacing: 0.01em;
     }
 
     body.dark-mode a:not(.btn):not(.nav-link) {
