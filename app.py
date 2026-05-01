@@ -112,6 +112,11 @@ Article.categories = db.relationship(
     backref=db.backref("articles", lazy=True),
 )
 
+# Vercel uses root app.py as the serverless entry; create schema after models exist.
+if os.environ.get("VERCEL"):
+    with app.app_context():
+        db.create_all()
+
 
 def apply_map_article_filters(articles: List[Any], args) -> List[Any]:
     """
