@@ -667,7 +667,7 @@ def site_login():
             if nxt.startswith("/") and "://" not in nxt and "\n" not in nxt and "\r" not in nxt:
                 return redirect(nxt)
             return redirect(url_for("home"))
-        flash("Incorrect password.", "danger")
+        flash("Senha incorreta.", "danger")
     return render_template(
         "site_login.html",
         next=(request.args.get("next") or request.form.get("next") or "").strip(),
@@ -677,7 +677,7 @@ def site_login():
 @app.route("/site-logout", methods=["POST"])
 def site_logout():
     session.pop("_site_access", None)
-    flash("Site access session cleared.", "info")
+    flash("Sessão da proteção por senha terminada.", "info")
     if _site_access_password():
         return redirect(url_for("site_login"))
     return redirect(url_for("home"))
