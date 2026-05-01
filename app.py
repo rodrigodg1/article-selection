@@ -57,6 +57,15 @@ _default_db = (
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
     "SQLALCHEMY_DATABASE_URI", _default_db
 )
+# Turso / libSQL: token is usually kept separate from the URI in Vercel env vars.
+_db_uri = str(app.config["SQLALCHEMY_DATABASE_URI"])
+_turso_token = (os.environ.get("TURSO_AUTH_TOKEN") or "").strip()
+if _turso_token and _db_uri.startswith("sqlite+libsql"):
+    if "authToken" not in _db_uri and "auth_token" not in _db_uri.lower():
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {"auth_token": _turso_token},
+        }
+
 db = SQLAlchemy(app)
 
 

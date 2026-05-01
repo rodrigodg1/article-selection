@@ -2,3 +2,4 @@ Flask==3.0.3
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.31
 pandas==2.2.2
+sqlalchemy-libsql==0.2.0
