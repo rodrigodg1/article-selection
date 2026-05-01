@@ -17,7 +17,6 @@ from zoneinfo import ZoneInfo
 
 import colorsys
 import hashlib
-import secrets
 
 
 from flask import (
@@ -44,34 +43,10 @@ from citation_map import build_map_payload, build_similarity_ranking
 # ----------------------------
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret")
-if os.environ.get("VERCEL"):
-    app.config["SESSION_COOKIE_SECURE"] = True
-    app.config["SESSION_COOKIE_HTTPONLY"] = True
-    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-# Vercel serverless: only /tmp is writable; default DB lives there unless overridden.
-_default_db = (
-    "sqlite:////tmp/literature.db"
-    if os.environ.get("VERCEL")
-    else "sqlite:///literature.db"
-)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "SQLALCHEMY_DATABASE_URI", _default_db
+    "SQLALCHEMY_DATABASE_URI", "sqlite:///literature.db"
 )
-# Turso / libSQL: token is usually kept separate from the URI in Vercel env vars.
-_db_uri = str(app.config["SQLALCHEMY_DATABASE_URI"])
-_turso_token = (os.environ.get("TURSO_AUTH_TOKEN") or "").strip()
-if _turso_token and _db_uri.startswith("sqlite+libsql"):
-    if "authToken" not in _db_uri and "auth_token" not in _db_uri.lower():
-        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "connect_args": {"auth_token": _turso_token},
-        }
-
 db = SQLAlchemy(app)
-
-
-def _site_access_password() -> str:
-    """If set (env SITE_ACCESS_PASSWORD), the app requires a session login for all routes."""
-    return (os.environ.get("SITE_ACCESS_PASSWORD") or "").strip()
 
 
 # ----------------------------
@@ -130,11 +105,6 @@ Article.categories = db.relationship(
     lazy="subquery",
     backref=db.backref("articles", lazy=True),
 )
-
-# Vercel uses root app.py as the serverless entry; create schema after models exist.
-if os.environ.get("VERCEL"):
-    with app.app_context():
-        db.create_all()
 
 
 def apply_map_article_filters(articles: List[Any], args) -> List[Any]:
@@ -642,56 +612,12 @@ def inject_nav():
         "highlight_terms": hl_terms,
         "highlight_is_regex": hl_is_regex,
         "highlight_query": ", ".join(hl_terms),
-        "site_access_enabled": bool(_site_access_password()),
-        "site_access_logged_in": bool(session.get("_site_access")),
     }
-
-
-@app.before_request
-def _require_site_access():
-    if not _site_access_password():
-        return None
-    if session.get("_site_access"):
-        return None
-    if request.endpoint in ("site_login", "static"):
-        return None
-    return redirect(url_for("site_login", next=request.path))
 
 
 # ----------------------------
 # Routes
 # ----------------------------
-@app.route("/site-login", methods=["GET", "POST"])
-def site_login():
-    pwd = _site_access_password()
-    if not pwd:
-        return redirect(url_for("home"))
-    if request.method == "GET" and session.get("_site_access"):
-        return redirect(url_for("home"))
-    if request.method == "POST":
-        submitted = (request.form.get("password") or "").strip()
-        if secrets.compare_digest(submitted, pwd):
-            session["_site_access"] = True
-            nxt = (request.form.get("next") or request.args.get("next") or "").strip() or url_for("home")
-            if nxt.startswith("/") and "://" not in nxt and "\n" not in nxt and "\r" not in nxt:
-                return redirect(nxt)
-            return redirect(url_for("home"))
-        flash("Senha incorreta.", "danger")
-    return render_template(
-        "site_login.html",
-        next=(request.args.get("next") or request.form.get("next") or "").strip(),
-    )
-
-
-@app.route("/site-logout", methods=["POST"])
-def site_logout():
-    session.pop("_site_access", None)
-    flash("Sessão da proteção por senha terminada.", "info")
-    if _site_access_password():
-        return redirect(url_for("site_login"))
-    return redirect(url_for("home"))
-
-
 @app.route("/")
 def home():
     dsid = get_active_dataset_id()

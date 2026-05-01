@@ -84,32 +84,8 @@ Na **primeira execução** é criada uma base **SQLite** local (por omissão `li
 | Variável | Descrição | Omissão |
 |----------|-----------|---------|
 | `SECRET_KEY` | Chave da sessão Flask (obrigatória em produção). | `dev-secret` |
-| `SQLALCHEMY_DATABASE_URI` | URI SQLAlchemy (SQLite local, Turso `sqlite+libsql://…`, PostgreSQL, etc.). | `sqlite:///literature.db` |
-| `TURSO_AUTH_TOKEN` | Token da base Turso (opcional). Usa-se com `SQLALCHEMY_DATABASE_URI` em formato `sqlite+libsql://…?secure=true` quando o token não vai no URL. | — |
-| `SITE_ACCESS_PASSWORD` | Se definida, exige login por senha antes da app (útil em deploy público). | — |
+| `SQLALCHEMY_DATABASE_URI` | URI SQLAlchemy (ex.: PostgreSQL). | `sqlite:///literature.db` |
 | `USER_TIMEZONE` | Fuso para datas na interface (`local_dt`). | `America/Los_Angeles` |
-
-### Vercel: não perder os dados do `literature.db` local
-
-No plano **Hobby** da Vercel, o ficheiro SQLite em `/tmp` **não é fiável** (novo deploy ou outro *cold start* pode voltar a uma base vazia). Para **continuar com os mesmos artigos já rotulados**:
-
-1. Cria uma base gratuita em **[Turso](https://turso.tech)** (SQLite na nuvem, compatível com o teu ficheiro).
-2. Instala o [CLI Turso](https://docs.turso.tech/cli/overview), autentica-te e importa o ficheiro local (ajusta o caminho; por exemplo `./literature.db` ou `./instance/literature.db`):
-
-   `turso db create litreview`  
-   `turso db import litreview ./literature.db`
-
-3. Obtém o URL da base (hostname `*.turso.io`) e um **token** com permissão de leitura/escrita.
-4. No projeto Vercel → **Settings → Environment Variables**, define por exemplo:
-   - `SQLALCHEMY_DATABASE_URI` = `sqlite+libsql://SEU-HOST-AQUI.turso.io?secure=true`
-   - `TURSO_AUTH_TOKEN` = o token (mantém em segredo).
-5. Faz **um** redeploy (ou “Redeploy” no último deployment) para instalar dependências e aplicar as variáveis.
-
-A app já inclui o pacote `sqlalchemy-libsql` para esse URI. Em local continuas a usar `sqlite:///literature.db` por omissão. (Se instalares dependências em macOS, usa **Python 3.10 ou superior** para haver *wheel* do `libsql-experimental`; em 3.9 no Apple Silicon o `pip` pode tentar compilar a partir do código-fonte.)
-
-### Projetos Vercel
-
-Este repositório está pensado para **um único projeto** Vercel (um URL de produção). Cada `git push` ou `vercel deploy` cria **novas revisões** do *mesmo* projeto — não é necessário criar vários projetos para a mesma app.
 
 ---
 
