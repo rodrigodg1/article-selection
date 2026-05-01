@@ -776,6 +776,11 @@
       </button>
 
       <div class="d-flex align-items-center gap-1 order-lg-5 ms-lg-2">
+        {% if site_access_enabled and site_access_logged_in %}
+        <form method="post" action="{{ url_for('site_logout') }}" class="d-inline me-1" title="Terminar sessão da proteção por senha">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">Sair do site</button>
+        </form>
+        {% endif %}
         <label for="readingTheme" class="d-none d-md-inline small text-muted mb-0 text-nowrap">Leitura</label>
         <select id="readingTheme" class="form-select form-select-sm" title="Modo de leitura"
           aria-label="Modo de leitura: branco, papel ou escuro">
